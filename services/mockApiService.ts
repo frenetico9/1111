@@ -1,5 +1,8 @@
 
-import { sql } from '@vercel/postgres';
+
+
+
+import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 
@@ -15,6 +18,20 @@ import parse from 'date-fns/parse';
 import set from 'date-fns/set';
 import startOfDay from 'date-fns/startOfDay';
 import parseISO from 'date-fns/parseISO';
+
+// --- DATABASE CONNECTION SETUP ---
+// This is the connection string you provided.
+// It will be used as a fallback for local development if the POSTGRES_URL environment variable is not set.
+// When deployed to Vercel, the environment variable will be used automatically.
+const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-shy-river-acbjgnoi-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
+const pool = createPool({
+  connectionString: process.env.POSTGRES_URL || NEON_CONNECTION_STRING,
+});
+
+// Use the sql template tag from our custom pool
+const sql = pool.sql;
+
 
 let isDbInitialized = false;
 
@@ -327,7 +344,7 @@ export const mockSignupBarbershop = async (barbershopName: string, responsibleNa
 
     // Use transaction for multi-table inserts
     try {
-        await sql.query('BEGIN');
+        await pool.query('BEGIN');
         await sql`
              INSERT INTO users (id, name, email, phone, type, "barbershopName", address, password_hash)
              VALUES (${newAdminId}, ${responsibleName}, ${email}, ${phone}, 'admin', ${barbershopName}, ${address}, ${pass})`;
@@ -337,9 +354,9 @@ export const mockSignupBarbershop = async (barbershopName: string, responsibleNa
         await sql`
              INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate")
              VALUES (${newAdminId}, 'free', 'active', NOW())`;
-        await sql.query('COMMIT');
+        await pool.query('COMMIT');
     } catch(e) {
-        await sql.query('ROLLBACK');
+        await pool.query('ROLLBACK');
         console.error("Signup transaction failed", e);
         throw new Error("Falha ao criar barbearia. Tente novamente.");
     }
@@ -419,7 +436,7 @@ export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Pa
     await ensureDbInitialized();
     
     try {
-        await sql.query('BEGIN');
+        await pool.query('BEGIN');
         await sql`
             UPDATE barbershop_profiles SET
                 name = ${data.name},
@@ -440,10 +457,10 @@ export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Pa
                 address = ${data.address}
             WHERE id = ${barbershopId};
         `;
-        await sql.query('COMMIT');
+        await pool.query('COMMIT');
         return true;
     } catch(e) {
-        await sql.query('ROLLBACK');
+        await pool.query('ROLLBACK');
         console.error("Update barbershop profile transaction failed", e);
         throw e;
     }
@@ -577,12 +594,12 @@ const appointmentBaseQuery = `
 
 export const mockGetClientAppointments = async (clientId: string): Promise<Appointment[]> => {
   await ensureDbInitialized();
-  const { rows } = await sql.query(`${appointmentBaseQuery} WHERE a."clientId" = $1`, [clientId]);
+  const { rows } = await pool.query(`${appointmentBaseQuery} WHERE a."clientId" = $1`, [clientId]);
   return rows.map(mapToAppointment);
 };
 export const mockGetAdminAppointments = async (barbershopId: string): Promise<Appointment[]> => {
   await ensureDbInitialized();
-  const { rows } = await sql.query(`${appointmentBaseQuery} WHERE a."barbershopId" = $1`, [barbershopId]);
+  const { rows } = await pool.query(`${appointmentBaseQuery} WHERE a."barbershopId" = $1`, [barbershopId]);
   return rows.map(mapToAppointment);
 };
 export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'barbershopName' | 'serviceName' | 'barberName'>): Promise<Appointment> => {
@@ -607,7 +624,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
         ${newAppointment.createdAt}
     )
   `;
-  const { rows } = await sql.query(`${appointmentBaseQuery} WHERE a.id = $1`, [newAppointment.id]);
+  const { rows } = await pool.query(`${appointmentBaseQuery} WHERE a.id = $1`, [newAppointment.id]);
   return mapToAppointment(rows[0]);
 };
 
@@ -624,7 +641,7 @@ export const mockUpdateAppointment = async (appointmentId: string, data: Partial
     WHERE id = ${appointmentId}
   `;
   if (rowCount === 0) return null;
-  const { rows } = await sql.query(`${appointmentBaseQuery} WHERE a.id = $1`, [appointmentId]);
+  const { rows } = await pool.query(`${appointmentBaseQuery} WHERE a.id = $1`, [appointmentId]);
   return rows.length > 0 ? mapToAppointment(rows[0]) : null;
 };
 
@@ -652,12 +669,12 @@ const reviewBaseQuery = `
 
 export const mockGetReviewsForBarbershop = async (barbershopId: string): Promise<Review[]> => {
   await ensureDbInitialized();
-  const { rows } = await sql.query(`${reviewBaseQuery} WHERE r."barbershopId" = $1`, [barbershopId]);
+  const { rows } = await pool.query(`${reviewBaseQuery} WHERE r."barbershopId" = $1`, [barbershopId]);
   return rows.map(mapToReview);
 };
 export const mockGetReviewForAppointment = async (appointmentId: string): Promise<Review | null> => {
   await ensureDbInitialized();
-  const { rows } = await sql.query(`${reviewBaseQuery} WHERE r."appointmentId" = $1`, [appointmentId]);
+  const { rows } = await pool.query(`${reviewBaseQuery} WHERE r."appointmentId" = $1`, [appointmentId]);
   return rows.length > 0 ? mapToReview(rows[0]) : null;
 }
 export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt' | 'reply' | 'replyAt'>): Promise<Review> => {
@@ -671,7 +688,7 @@ export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt' 
     VALUES (${newReview.id}, ${newReview.appointmentId}, ${newReview.clientId}, ${newReview.barbershopId}, ${newReview.rating}, ${reviewData.comment}, ${newReview.createdAt})
   `;
   
-  const { rows } = await sql.query(`${reviewBaseQuery} WHERE r.id = $1`, [newReview.id]);
+  const { rows } = await pool.query(`${reviewBaseQuery} WHERE r.id = $1`, [newReview.id]);
   return mapToReview(rows[0]);
 };
 export const mockReplyToReview = async (reviewId: string, replyText: string, adminId: string): Promise<Review | null> => {
@@ -681,7 +698,7 @@ export const mockReplyToReview = async (reviewId: string, replyText: string, adm
         WHERE id = ${reviewId} AND "barbershopId" = ${adminId}
     `;
     if (rowCount === 0) return null;
-    const { rows } = await sql.query(`${reviewBaseQuery} WHERE r.id = $1`, [reviewId]);
+    const { rows } = await pool.query(`${reviewBaseQuery} WHERE r.id = $1`, [reviewId]);
     return rows.length > 0 ? mapToReview(rows[0]) : null;
 };
 
@@ -700,7 +717,7 @@ export const mockGetClientsForBarbershop = async (barbershopId: string): Promise
 
 export const mockGetAppointmentsForClientByBarbershop = async (clientId: string, barbershopId: string): Promise<Appointment[]> => {
     await ensureDbInitialized();
-    const { rows } = await sql.query(`${appointmentBaseQuery} WHERE a."clientId" = $1 AND a."barbershopId" = $2`, [clientId, barbershopId]);
+    const { rows } = await pool.query(`${appointmentBaseQuery} WHERE a."clientId" = $1 AND a."barbershopId" = $2`, [clientId, barbershopId]);
     return rows.map(mapToAppointment);
 };
 
