@@ -234,7 +234,7 @@ const HowItWorksSection = () => (
             </div>
             <div className="grid md:grid-cols-2 items-center gap-12">
                 <div className="relative">
-                    <img src="https://i.imgur.com/gK7P6bQ.png" alt="Celular mostrando o app Navalha Digital" className="max-w-xs mx-auto animate-subtle-float" />
+                    <img src="https://iili.io/FRKGVvs.png" alt="Celular mostrando o app Navalha Digital" className="max-w-xs mx-auto animate-subtle-float" />
                 </div>
                 <div className="space-y-8">
                     <div className="flex items-start">
