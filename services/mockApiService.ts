@@ -21,6 +21,9 @@ const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-sh
 
 const pool = createPool({
   connectionString: process.env.POSTGRES_URL || NEON_CONNECTION_STRING,
+  // @ts-ignore - webSocketConstructor is a valid option for the underlying Neon driver but not exposed in Vercel's types.
+  // This explicitly passes the browser's WebSocket implementation to the driver, fixing the connection issue in a browser environment.
+  webSocketConstructor: WebSocket,
 });
 
 
