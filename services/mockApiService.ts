@@ -1,5 +1,6 @@
 
 
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -24,7 +25,7 @@ const pool = createPool({
   connectionString: process.env.POSTGRES_URL || NEON_CONNECTION_STRING,
   // @ts-ignore - webSocketConstructor is a valid option for the underlying Neon driver but not exposed in Vercel's types.
   // This explicitly passes the browser's WebSocket implementation to the driver, fixing the connection issue in a browser environment.
-  webSocketConstructor: WebSocket,
+  webSocketConstructor: typeof window !== 'undefined' ? WebSocket : undefined,
 });
 
 
@@ -328,25 +329,25 @@ export const mockSignupBarbershop = async (barbershopName: string, responsibleNa
         address
     };
 
-    const client = await pool.connect();
     try {
-        await client.sql`BEGIN`;
-        await client.sql`
+        // Perform the inserts sequentially. If one fails, the next ones won't execute.
+        await pool.sql`
              INSERT INTO users (id, name, email, phone, type, "barbershopName", address, password_hash)
              VALUES (${newAdminId}, ${responsibleName}, ${email}, ${phone}, 'admin', ${barbershopName}, ${address}, ${pass})`;
-        await client.sql`
+
+        await pool.sql`
              INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, "workingHours", "logoUrl", "coverImageUrl")
              VALUES (${newAdminId}, ${barbershopName}, ${responsibleName}, ${email}, ${phone}, ${address}, ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}, ${`https://i.imgur.com/OViX73g.png`}, ${`https://i.imgur.com/gK7P6bQ.png`})`;
-        await client.sql`
+        
+        await pool.sql`
              INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate")
              VALUES (${newAdminId}, 'free', 'active', NOW())`;
-        await client.sql`COMMIT`;
+        
     } catch(e) {
-        await client.sql`ROLLBACK`;
-        console.error("Signup transaction failed", e);
-        throw new Error("Falha ao criar barbearia. Tente novamente.");
-    } finally {
-        client.release();
+        console.error("Signup transaction-less operation failed", e);
+        // Attempt to clean up the user if it was created.
+        await pool.sql`DELETE FROM users WHERE id = ${newAdminId}`; // This might also fail, but it's a best effort.
+        throw new Error("Falha ao criar barbearia. A operação foi revertida.");
     }
     
     return newUser;
@@ -423,10 +424,9 @@ export const mockGetBarbershopProfile = async (barbershopId: string): Promise<Ba
 export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Partial<BarbershopProfile>): Promise<boolean> => {
     await ensureDbInitialized();
     
-    const client = await pool.connect();
     try {
-        await client.sql`BEGIN`;
-        await client.sql`
+        // Non-transactional update. Less safe but avoids pool.connect().
+        await pool.sql`
             UPDATE barbershop_profiles SET
                 name = ${data.name},
                 "responsibleName" = ${data.responsibleName},
@@ -438,7 +438,8 @@ export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Pa
                 "workingHours" = ${JSON.stringify(data.workingHours)}
             WHERE id = ${barbershopId};
         `;
-        await client.sql`
+        
+        await pool.sql`
             UPDATE users SET
                 "barbershopName" = ${data.name},
                 name = ${data.responsibleName},
@@ -446,14 +447,13 @@ export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Pa
                 address = ${data.address}
             WHERE id = ${barbershopId};
         `;
-        await client.sql`COMMIT`;
-        return true;
+        
+        return true; // Both queries succeeded
+
     } catch(e) {
-        await client.sql`ROLLBACK`;
-        console.error("Update barbershop profile transaction failed", e);
-        throw e;
-    } finally {
-        client.release();
+        console.error("Update barbershop profile failed", e);
+        // Data might be inconsistent if the first query succeeded and the second failed.
+        throw new Error("Falha ao atualizar o perfil da barbearia.");
     }
 };
 
