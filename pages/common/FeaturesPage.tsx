@@ -24,8 +24,15 @@ const FeaturesPage: React.FC = () => {
             Explore as ferramentas poderosas que projetamos para simplificar a gestão da sua barbearia e encantar seus clientes.
           </p>
         </div>
-        <div className="grid md:grid-cols-2 gap-x-12 lg:gap-x-20 gap-y-8 items-center">
-            <div className="space-y-6">
+        <div className="flex flex-col items-center gap-16">
+            <div className="w-full max-w-5xl">
+                <img 
+                    src="https://iili.io/FRK4loB.png" 
+                    alt="Ecossistema Navalha Digital em diversos dispositivos" 
+                    className="w-full h-auto rounded-xl shadow-2xl" 
+                />
+            </div>
+            <div className="w-full grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
                 <FeatureListItem iconName="event_available" title="Agendamento Fácil 24/7" description="Seus clientes agendam online a qualquer hora, de qualquer lugar, escolhendo serviço, profissional e horário com conveniência total." />
                 <FeatureListItem iconName="dashboard_customize" title="Painel de Gestão Completo" description="Administre sua agenda, equipe, serviços e finanças em um só lugar. Tenha o controle total do seu negócio na palma da sua mão." />
                 <FeatureListItem iconName="notifications_active" title="Notificações Inteligentes" description="Reduza faltas com lembretes automáticos de agendamento via e-mail para seus clientes. Mantenha todos sincronizados." />
@@ -33,9 +40,6 @@ const FeaturesPage: React.FC = () => {
                 <FeatureListItem iconName="insights" title="Relatórios e Análises" description="Acesse dados sobre faturamento, serviços mais populares e desempenho dos funcionários para tomar decisões estratégicas. (Plano PRO)" />
                 <FeatureListItem iconName="groups" title="Gestão de Clientes (CRM)" description="Mantenha um histórico completo de seus clientes, incluindo agendamentos passados, preferências e observações importantes." />
                 <FeatureListItem iconName="reviews" title="Gestão de Avaliações" description="Receba e responda às avaliações dos seus clientes, construindo confiança e melhorando seus serviços continuamente." />
-            </div>
-            <div className="flex items-center justify-center">
-                <img src="https://i.imgur.com/GzC0D9c.png" alt="Ecossistema Navalha Digital em diversos dispositivos" className="max-w-full h-auto rounded-lg shadow-xl" />
             </div>
         </div>
         <div className="text-center mt-20">
