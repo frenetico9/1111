@@ -89,9 +89,9 @@ const BarbershopShowcaseCard: React.FC<{ barbershop: BarbershopSearchResultItem 
             {isPro && <ProBadge />}
             <div className="h-40 bg-cover bg-center" style={{backgroundImage: `url(${barbershop.coverImageUrl || 'https://source.unsplash.com/400x300/?barbershop'})`}}></div>
             <div className="p-5">
-                <div className="flex items-center -mt-12 mb-3">
-                    <img src={barbershop.logoUrl || NAVALHA_LOGO_URL} alt={`${barbershop.name} logo`} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md bg-white"/>
-                    <div className="ml-3 flex-1">
+                <div className="flex items-end -mt-12 mb-3">
+                    <img src={barbershop.logoUrl || NAVALHA_LOGO_URL} alt={`${barbershop.name} logo`} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md bg-white flex-shrink-0"/>
+                    <div className="ml-3 flex-1 pb-1">
                         <h3 className="text-lg font-bold text-text-dark truncate">{barbershop.name}</h3>
                          {barbershop.reviewCount > 0 && (
                             <div className="flex items-center">
