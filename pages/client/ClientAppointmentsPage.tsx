@@ -136,7 +136,7 @@ const ClientAppointmentsPage: React.FC = () => {
         <div className="text-center py-10 bg-white shadow-xl rounded-lg border border-light-blue">
           <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">event_busy</span>
           <p className="text-xl text-gray-600 mb-4">Você ainda não possui agendamentos.</p>
-          <Link to="/">
+          <Link to="/client/find-barbershops">
             <Button variant="primary" size="lg">Encontrar Barbearias</Button>
           </Link>
         </div>
@@ -190,7 +190,7 @@ const ClientAppointmentsPage: React.FC = () => {
           </>
         }
       >
-        <p>Tem certeza que deseja cancelar o agendamento para <span className="font-semibold">{selectedAppointment?.serviceName}</span> no dia <span className="font-semibold">{selectedAppointment?.date ? new Date(selectedAppointment.date  + "T00:00:00").toLocaleDateString('pt-BR') : ''}</span> às <span className="font-semibold">{selectedAppointment?.time}</span>?</p>
+        <p>Tem certeza que deseja cancelar o agendamento para <span className="font-semibold">{selectedAppointment?.serviceNames?.join(', ')}</span> no dia <span className="font-semibold">{selectedAppointment?.date ? new Date(selectedAppointment.date  + "T00:00:00").toLocaleDateString('pt-BR') : ''}</span> às <span className="font-semibold">{selectedAppointment?.time}</span>?</p>
         <p className="text-sm text-gray-500 mt-2">Esta ação não pode ser desfeita.</p>
       </Modal>
 
@@ -208,7 +208,7 @@ const ClientAppointmentsPage: React.FC = () => {
       >
         {selectedAppointment && (
           <div>
-            <p className="mb-1 text-sm">Serviço: <span className="font-semibold">{selectedAppointment.serviceName}</span></p>
+            <p className="mb-1 text-sm">Serviço: <span className="font-semibold">{selectedAppointment.serviceNames?.join(', ')}</span></p>
             <p className="mb-3 text-sm">Data: <span className="font-semibold">{selectedAppointment.date ? new Date(selectedAppointment.date + "T00:00:00").toLocaleDateString('pt-BR') : ''} às {selectedAppointment.time}</span></p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Sua nota (estrelas):</label>

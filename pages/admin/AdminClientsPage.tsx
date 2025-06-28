@@ -6,9 +6,8 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
-import { format } from 'date-fns';
-import parseISO from 'date-fns/parseISO';
-import ptBR from 'date-fns/locale/pt-BR';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ClientWithDetails extends User {
   totalAppointments: number;
@@ -45,7 +44,7 @@ const ClientDetailModalContent: React.FC<{ client: ClientWithDetails, appointmen
         <ul className="max-h-60 overflow-y-auto space-y-1.5 text-xs border rounded-md p-2 bg-gray-50">
           {appointments.map(app => (
             <li key={app.id} className="p-1.5 bg-light-blue/60 rounded-sm shadow-sm">
-              {format(parseISO(app.date + 'T' + app.time), "dd/MM/yy HH:mm", {locale: ptBR})} - <strong>{app.serviceName}</strong> ({app.status})
+              {format(parseISO(app.date + 'T' + app.time), "dd/MM/yy HH:mm", {locale: ptBR})} - <strong>{app.serviceNames?.join(', ')}</strong> ({app.status})
               {app.barberName && <span className="text-gray-500"> com {app.barberName}</span>}
             </li>
           ))}

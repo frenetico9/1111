@@ -4,11 +4,8 @@ import { Appointment, Service, Review, User, UserType } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { mockGetAdminAppointments, mockGetServicesForBarbershop, mockGetReviewsForBarbershop, mockGetClientsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { format, endOfWeek, isWithinInterval } from 'date-fns';
-import parseISO from 'date-fns/parseISO';
-import subDays from 'date-fns/subDays';
-import startOfWeek from 'date-fns/startOfWeek';
-import ptBR from 'date-fns/locale/pt-BR';
+import { format, endOfWeek, isWithinInterval, parseISO, subDays, startOfWeek } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button';
 import { PRIMARY_BLUE } from '../../constants';
@@ -74,10 +71,7 @@ const AdminOverviewPage: React.FC = () => {
 
     const totalRevenue = appointments
       .filter(a => a.status === 'completed')
-      .reduce((sum, app) => {
-          const service = services.find(s => s.id === app.serviceId);
-          return sum + (service?.price || 0);
-      }, 0);
+      .reduce((sum, app) => sum + app.totalPrice, 0);
     
     const appointmentsToday = appointments.filter(a => a.date === todayStr).length;
     const appointmentsThisWeek = appointments.filter(a => isWithinInterval(parseISO(a.date), {start: startOfCurrentWeek, end: endOfCurrentWeek })).length;

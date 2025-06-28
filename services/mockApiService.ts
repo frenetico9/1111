@@ -1,22 +1,18 @@
-
-
-
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
-
-import { 
+import {
     addMinutes,
     format,
     getDay,
     isSameDay,
     isBefore,
-    isEqual
+    isEqual,
+    parse,
+    set,
+    startOfDay,
+    parseISO,
 } from 'date-fns';
-import parse from 'date-fns/parse';
-import set from 'date-fns/set';
-import startOfDay from 'date-fns/startOfDay';
-import parseISO from 'date-fns/parseISO';
 
 // --- DATABASE CONNECTION SETUP ---
 const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-shy-river-acbjgnoi-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -109,7 +105,10 @@ async function initializeDatabase() {
           id TEXT PRIMARY KEY,
           "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "serviceId" TEXT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+          "serviceIds" TEXT[] NOT NULL,
+          "serviceNames" TEXT[] NOT NULL,
+          "totalPrice" NUMERIC(10, 2) NOT NULL,
+          "totalDuration" INTEGER NOT NULL,
           "barberId" TEXT REFERENCES barbers(id) ON DELETE SET NULL,
           date DATE NOT NULL,
           time TEXT NOT NULL,
@@ -177,10 +176,10 @@ async function initializeDatabase() {
       `;
       
       await pool.sql`
-        INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt") VALUES
-        ('appt1', 'client1', 'admin1', 'service1', 'barber1_admin1', CURRENT_DATE, '10:00', 'scheduled', NOW()),
-        ('appt2', 'client1', 'admin1', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days'),
-        ('appt3', 'client1', 'admin2', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW());
+        INSERT INTO appointments (id, "clientId", "barbershopId", "serviceIds", "serviceNames", "totalPrice", "totalDuration", "barberId", date, time, status, "createdAt") VALUES
+        ('appt1', 'client1', 'admin1', '{service1}', '{"Corte Masculino"}', 50, 45, 'barber1_admin1', CURRENT_DATE, '10:00', 'scheduled', NOW()),
+        ('appt2', 'client1', 'admin1', '{service2}', '{"Barba Tradicional"}', 35, 30, null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days'),
+        ('appt3', 'client1', 'admin2', '{service5}', '{"Corte VIP"}', 120, 60, null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW());
       `;
       
       await pool.sql`
@@ -256,8 +255,10 @@ const mapToAppointment = (row: any): Appointment => ({
     clientName: row.clientName,
     barbershopId: row.barbershopId,
     barbershopName: row.barbershopName,
-    serviceId: row.serviceId,
-    serviceName: row.serviceName,
+    serviceIds: row.serviceIds,
+    serviceNames: row.serviceNames,
+    totalPrice: Number(row.totalPrice),
+    totalDuration: row.totalDuration,
     barberId: row.barberId,
     barberName: row.barberName,
     date: format(new Date(row.date), 'yyyy-MM-dd'),
@@ -568,15 +569,14 @@ export const mockDeleteBarber = async (barberId: string): Promise<boolean> => {
 
 const getAppointmentQuery = (whereClause: string) => pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+        a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+        a."totalPrice", a."totalDuration", a."barberId",
         a.date, a.time, a.status, a.notes, a."createdAt", 
         c.name AS "clientName",
-        s.name AS "serviceName",
         b.name AS "barberName",
         bs.name AS "barbershopName"
     FROM appointments a
     JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
     LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     ${whereClause}
@@ -587,15 +587,14 @@ export const mockGetClientAppointments = async (clientId: string): Promise<Appoi
   await ensureDbInitialized();
   const { rows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+        a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+        a."totalPrice", a."totalDuration", a."barberId",
         a.date, a.time, a.status, a.notes, a."createdAt", 
         c.name AS "clientName",
-        s.name AS "serviceName",
         b.name AS "barberName",
         bs.name AS "barbershopName"
     FROM appointments a
     JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
     LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a."clientId" = ${clientId}
@@ -606,67 +605,80 @@ export const mockGetAdminAppointments = async (barbershopId: string): Promise<Ap
   await ensureDbInitialized();
   const { rows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+        a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+        a."totalPrice", a."totalDuration", a."barberId",
         a.date, a.time, a.status, a.notes, a."createdAt", 
         c.name AS "clientName",
-        s.name AS "serviceName",
         b.name AS "barberName",
         bs.name AS "barbershopName"
     FROM appointments a
     JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
     LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a."barbershopId" = ${barbershopId}
   `;
   return rows.map(mapToAppointment);
 };
-export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'barbershopName' | 'serviceName' | 'barberName'>): Promise<Appointment> => {
+
+export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'barbershopName' | 'serviceNames' | 'barberName' | 'totalPrice' | 'totalDuration' | 'status'>): Promise<Appointment> => {
   await ensureDbInitialized();
+  
+  // Fetch services to calculate totals and get names
+  const serviceIdsParam = `{${appointmentData.serviceIds.join(',')}}`;
+  const { rows: services } = await pool.sql`SELECT * FROM services WHERE id = ANY(${serviceIdsParam})`;
+  if(services.length !== appointmentData.serviceIds.length) throw new Error("Um ou mais serviços não foram encontrados.");
+  
+  const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+  const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
+  const serviceNames = services.map(s => s.name);
+  
   const newAppointment = { 
-    ...appointmentData, 
-    id: generateId('appt'), 
-    createdAt: new Date().toISOString()
+    ...appointmentData,
+    id: generateId('appt'),
+    createdAt: new Date().toISOString(),
+    status: 'scheduled',
+    totalDuration,
+    totalPrice,
+    serviceNames
   };
+
   await pool.sql`
-    INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt")
+    INSERT INTO appointments (
+      id, "clientId", "barbershopId", "serviceIds", "serviceNames",
+      "totalPrice", "totalDuration", "barberId", date, time, status, notes, "createdAt"
+    )
     VALUES (
-        ${newAppointment.id}, 
-        ${newAppointment.clientId}, 
-        ${newAppointment.barbershopId}, 
-        ${newAppointment.serviceId}, 
-        ${newAppointment.barberId || null}, 
-        ${newAppointment.date}, 
-        ${newAppointment.time}, 
-        ${newAppointment.status}, 
-        ${newAppointment.notes}, 
-        ${newAppointment.createdAt}
+        ${newAppointment.id}, ${newAppointment.clientId}, ${newAppointment.barbershopId},
+        ${`{${newAppointment.serviceIds.join(',')}}`}, ${`{${newAppointment.serviceNames.map(n => `"${n}"`).join(',')}}`},
+        ${newAppointment.totalPrice}, ${newAppointment.totalDuration},
+        ${newAppointment.barberId || null}, ${newAppointment.date}, ${newAppointment.time}, 
+        ${newAppointment.status}, ${newAppointment.notes}, ${newAppointment.createdAt}
     )
   `;
-  const { rows } = await pool.sql`
+
+  const { rows: resultRows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+        a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+        a."totalPrice", a."totalDuration", a."barberId",
         a.date, a.time, a.status, a.notes, a."createdAt", 
         c.name AS "clientName",
-        s.name AS "serviceName",
         b.name AS "barberName",
         bs.name AS "barbershopName"
     FROM appointments a
     JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
     LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a.id = ${newAppointment.id}
   `;
-  return mapToAppointment(rows[0]);
+  return mapToAppointment(resultRows[0]);
 };
 
 export const mockUpdateAppointment = async (appointmentId: string, data: Partial<Appointment>): Promise<Appointment | null> => {
   await ensureDbInitialized();
+  // Simplified update: does not allow changing services, only other details.
   const { rowCount } = await pool.sql`
     UPDATE appointments SET
         "clientId" = ${data.clientId},
-        "serviceId" = ${data.serviceId},
         "barberId" = ${data.barberId || null},
         date = ${data.date},
         time = ${data.time},
@@ -676,15 +688,14 @@ export const mockUpdateAppointment = async (appointmentId: string, data: Partial
   if (rowCount === 0) return null;
   const { rows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+        a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+        a."totalPrice", a."totalDuration", a."barberId",
         a.date, a.time, a.status, a.notes, a."createdAt", 
         c.name AS "clientName",
-        s.name AS "serviceName",
         b.name AS "barberName",
         bs.name AS "barbershopName"
     FROM appointments a
     JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
     LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a.id = ${appointmentId}
@@ -780,15 +791,14 @@ export const mockGetAppointmentsForClientByBarbershop = async (clientId: string,
     await ensureDbInitialized();
     const { rows } = await pool.sql`
         SELECT 
-            a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
+            a.id, a."clientId", a."barbershopId", a."serviceIds", a."serviceNames",
+            a."totalPrice", a."totalDuration", a."barberId",
             a.date, a.time, a.status, a.notes, a."createdAt", 
             c.name AS "clientName",
-            s.name AS "serviceName",
             b.name AS "barberName",
             bs.name AS "barbershopName"
         FROM appointments a
         JOIN users c ON a."clientId" = c.id
-        JOIN services s ON a."serviceId" = s.id
         LEFT JOIN barbers b ON a."barberId" = b.id
         LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
         WHERE a."clientId" = ${clientId} AND a."barbershopId" = ${barbershopId}
@@ -824,9 +834,8 @@ export const mockGetAvailableTimeSlots = async (
   const shopWorkingHoursToday = barbershopProfile.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
 
   const { rows: appointmentsOnDate } = await pool.sql`
-      SELECT a.time, a."barberId", s.duration
+      SELECT a.time, a."barberId", a."totalDuration" as duration
       FROM appointments a
-      JOIN services s ON a."serviceId" = s.id
       WHERE a."barbershopId" = ${barbershopId} AND a.date = ${dateString} AND a.status = 'scheduled'
   `;
 

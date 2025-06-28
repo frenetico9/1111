@@ -9,12 +9,30 @@ import { useNotification } from '../../contexts/NotificationContext';
 type SortOption = 'relevance' | 'name_asc' | 'name_desc' | 'rating_desc';
 type RatingFilterOption = 'any' | '4+' | '3+';
 
+const DF_CITIES = [
+  'Águas Claras',
+  'Brasília (Plano Piloto)',
+  'Ceilândia',
+  'Gama',
+  'Guará',
+  'Lago Norte',
+  'Lago Sul',
+  'Planaltina',
+  'Samambaia',
+  'Santa Maria',
+  'Sobradinho',
+  'Sudoeste/Octogonal',
+  'Taguatinga',
+  'Vicente Pires'
+];
+
 const ClientFindBarbershopsPage: React.FC = () => {
   const [allBarbershopsData, setAllBarbershopsData] = useState<BarbershopSearchResultItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('relevance');
   const [ratingFilter, setRatingFilter] = useState<RatingFilterOption>('any');
+  const [cityFilter, setCityFilter] = useState<string>('all');
   const { addNotification } = useNotification();
 
   const fetchData = useCallback(async () => {
@@ -47,6 +65,11 @@ const ClientFindBarbershopsPage: React.FC = () => {
       );
     }
 
+    // Filter by City
+    if (cityFilter !== 'all') {
+      items = items.filter(shop => shop.address.toLowerCase().includes(cityFilter.toLowerCase()));
+    }
+
     // Filter by Rating
     if (ratingFilter !== 'any') {
       const minRating = ratingFilter === '4+' ? 4 : 3;
@@ -54,8 +77,6 @@ const ClientFindBarbershopsPage: React.FC = () => {
     }
 
     // Sort
-    // The initial sort (PRO on top) is already handled by the API.
-    // This client-side sort re-orders the full list based on user selection.
     const sortFunction = (a: BarbershopSearchResultItem, b: BarbershopSearchResultItem) => {
         // Primary sort: always keep PRO shops before free shops
         if (a.subscriptionTier === 'pro' && b.subscriptionTier !== 'pro') return -1;
@@ -77,7 +98,7 @@ const ClientFindBarbershopsPage: React.FC = () => {
     items.sort(sortFunction);
 
     return items;
-  }, [allBarbershopsData, searchTerm, ratingFilter, sortOption]);
+  }, [allBarbershopsData, searchTerm, ratingFilter, sortOption, cityFilter]);
 
   if (loading && allBarbershopsData.length === 0) {
     return (
@@ -89,48 +110,58 @@ const ClientFindBarbershopsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto">
-      <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue mb-6 sm:mb-8">Encontrar Barbearias</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue mb-6 sm:mb-8">Encontrar Barbearias no DF</h1>
 
       {/* Search and Filter Controls */}
       <div className="mb-6 p-4 bg-white rounded-lg shadow-md border border-light-blue">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <Input
             label="Buscar por Nome ou Endereço"
             type="search"
             placeholder="Digite aqui..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            containerClassName="mb-0 md:col-span-2"
+            containerClassName="mb-0 md:col-span-6"
             leftIcon={<span className="material-icons-outlined">search</span>}
           />
-          <div className="grid grid-cols-2 gap-4 md:col-span-1">
-            <div>
-              <label htmlFor="ratingFilter" className="block text-xs font-medium text-gray-700">Avaliação Mínima</label>
-              <select
-                id="ratingFilter"
-                value={ratingFilter}
-                onChange={(e) => setRatingFilter(e.target.value as RatingFilterOption)}
-                className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
-              >
-                <option value="any">Qualquer</option>
-                <option value="4+">4+ Estrelas</option>
-                <option value="3+">3+ Estrelas</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="sortOption" className="block text-xs font-medium text-gray-700">Ordenar Por</label>
-              <select
-                id="sortOption"
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
-                className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
-              >
-                <option value="relevance">Relevância</option>
-                <option value="name_asc">Nome (A-Z)</option>
-                <option value="name_desc">Nome (Z-A)</option>
-                <option value="rating_desc">Melhor Avaliadas</option>
-              </select>
-            </div>
+          <div className="md:col-span-2">
+            <label htmlFor="cityFilter" className="block text-xs font-medium text-gray-700">Cidade</label>
+            <select
+              id="cityFilter"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
+            >
+              <option value="all">Todas as Cidades</option>
+              {DF_CITIES.sort().map(city => <option key={city} value={city}>{city}</option>)}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="ratingFilter" className="block text-xs font-medium text-gray-700">Avaliação Mínima</label>
+            <select
+              id="ratingFilter"
+              value={ratingFilter}
+              onChange={(e) => setRatingFilter(e.target.value as RatingFilterOption)}
+              className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
+            >
+              <option value="any">Qualquer</option>
+              <option value="4+">4+ Estrelas</option>
+              <option value="3+">3+ Estrelas</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="sortOption" className="block text-xs font-medium text-gray-700">Ordenar Por</label>
+            <select
+              id="sortOption"
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as SortOption)}
+              className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
+            >
+              <option value="relevance">Relevância</option>
+              <option value="name_asc">Nome (A-Z)</option>
+              <option value="name_desc">Nome (Z-A)</option>
+              <option value="rating_desc">Melhor Avaliadas</option>
+            </select>
           </div>
         </div>
       </div>
