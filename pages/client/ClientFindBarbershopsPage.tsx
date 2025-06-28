@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import Input from '../../components/Input';
 import BarbershopSearchCard from '../../components/BarbershopSearchCard';
 import { useNotification } from '../../contexts/NotificationContext';
+import { DF_CITIES } from '../../constants';
 
 type SortOption = 'relevance' | 'name_asc' | 'name_desc' | 'rating_desc';
 type RatingFilterOption = 'any' | '4+' | '3+';
@@ -15,6 +16,7 @@ const ClientFindBarbershopsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('relevance');
   const [ratingFilter, setRatingFilter] = useState<RatingFilterOption>('any');
+  const [cityFilter, setCityFilter] = useState<string>('all');
   const { addNotification } = useNotification();
 
   const fetchData = useCallback(async () => {
@@ -38,6 +40,13 @@ const ClientFindBarbershopsPage: React.FC = () => {
   const filteredAndSortedBarbershops = useMemo(() => {
     let items = [...allBarbershopsData];
 
+    // Filter by city
+    if (cityFilter !== 'all') {
+        items = items.filter(shop => 
+            shop.address.toLowerCase().includes(cityFilter.toLowerCase())
+        );
+    }
+
     // Search
     if (searchTerm) {
       const lowercasedTerm = searchTerm.toLowerCase();
@@ -54,8 +63,6 @@ const ClientFindBarbershopsPage: React.FC = () => {
     }
 
     // Sort
-    // The initial sort (PRO on top) is already handled by the API.
-    // This client-side sort re-orders the full list based on user selection.
     const sortFunction = (a: BarbershopSearchResultItem, b: BarbershopSearchResultItem) => {
         // Primary sort: always keep PRO shops before free shops
         if (a.subscriptionTier === 'pro' && b.subscriptionTier !== 'pro') return -1;
@@ -77,7 +84,7 @@ const ClientFindBarbershopsPage: React.FC = () => {
     items.sort(sortFunction);
 
     return items;
-  }, [allBarbershopsData, searchTerm, ratingFilter, sortOption]);
+  }, [allBarbershopsData, searchTerm, ratingFilter, sortOption, cityFilter]);
 
   if (loading && allBarbershopsData.length === 0) {
     return (
@@ -93,19 +100,33 @@ const ClientFindBarbershopsPage: React.FC = () => {
 
       {/* Search and Filter Controls */}
       <div className="mb-6 p-4 bg-white rounded-lg shadow-md border border-light-blue">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <Input
             label="Buscar por Nome ou Endereço"
             type="search"
             placeholder="Digite aqui..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            containerClassName="mb-0 md:col-span-2"
+            containerClassName="mb-0 lg:col-span-2"
             leftIcon={<span className="material-icons-outlined">search</span>}
           />
-          <div className="grid grid-cols-2 gap-4 md:col-span-1">
-            <div>
-              <label htmlFor="ratingFilter" className="block text-xs font-medium text-gray-700">Avaliação Mínima</label>
+          <div>
+            <label htmlFor="cityFilter" className="block text-xs font-medium text-gray-700">Filtrar por Cidade</label>
+            <select
+              id="cityFilter"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
+            >
+              <option value="all">Todas as Cidades</option>
+              {DF_CITIES.sort().map(city => (
+                  <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4 lg:col-span-1">
+             <div>
+              <label htmlFor="ratingFilter" className="block text-xs font-medium text-gray-700">Avaliação</label>
               <select
                 id="ratingFilter"
                 value={ratingFilter}
@@ -113,8 +134,8 @@ const ClientFindBarbershopsPage: React.FC = () => {
                 className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm"
               >
                 <option value="any">Qualquer</option>
-                <option value="4+">4+ Estrelas</option>
-                <option value="3+">3+ Estrelas</option>
+                <option value="4+">4+</option>
+                <option value="3+">3+</option>
               </select>
             </div>
             <div>

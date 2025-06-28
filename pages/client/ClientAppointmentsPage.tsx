@@ -136,7 +136,7 @@ const ClientAppointmentsPage: React.FC = () => {
         <div className="text-center py-10 bg-white shadow-xl rounded-lg border border-light-blue">
           <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">event_busy</span>
           <p className="text-xl text-gray-600 mb-4">Você ainda não possui agendamentos.</p>
-          <Link to="/">
+          <Link to="/client/find-barbershops">
             <Button variant="primary" size="lg">Encontrar Barbearias</Button>
           </Link>
         </div>
