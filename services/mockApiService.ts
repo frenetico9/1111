@@ -12,6 +12,7 @@ import {
     set,
     startOfDay,
     parseISO,
+    isAfter,
 } from 'date-fns';
 
 // --- DATABASE CONNECTION SETUP ---
@@ -245,7 +246,7 @@ const mapToBarber = (row: any): Barber => ({
     id: row.id,
     barbershopId: row.barbershopId,
     name: row.name,
-    availableHours: row.availableHours,
+    availableHours: row.availableHours || [],
     assignedServices: row.assignedServices || []
 });
 
@@ -811,36 +812,49 @@ export const mockGetAvailableTimeSlots = async (
   barbershopId: string,
   serviceDuration: number,
   dateString: string,
+  serviceIds: string[],
   barberId?: string | null
 ): Promise<string[]> => {
   await ensureDbInitialized();
+
+  if (serviceIds.length === 0 || serviceDuration === 0) {
+    return [];
+  }
 
   const selectedDate = parseISO(dateString + 'T00:00:00Z');
   const dayOfWeek = getDay(selectedDate);
 
   const barbershopProfile = await mockGetBarbershopProfile(barbershopId);
   if (!barbershopProfile) return [];
-  
+
   const allBarbersInShop = await mockGetBarbersForBarbershop(barbershopId);
-  
+  const qualifiedBarbers = allBarbersInShop.filter(barber =>
+    serviceIds.every(sid => barber.assignedServices.includes(sid))
+  );
+
   let relevantBarbers: Barber[] = [];
   if (barberId) {
-    const specificBarber = allBarbersInShop.find(b => b.id === barberId);
-    if (specificBarber) relevantBarbers.push(specificBarber);
+    const specificBarber = qualifiedBarbers.find(b => b.id === barberId);
+    if (specificBarber) {
+      relevantBarbers.push(specificBarber);
+    } else {
+      return []; // Selected barber not qualified for these services
+    }
   } else {
-    relevantBarbers = allBarbersInShop;
+    relevantBarbers = qualifiedBarbers;
   }
-  
+
+  if (relevantBarbers.length === 0) return []; // No qualified barbers found
+
   const shopWorkingHoursToday = barbershopProfile.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
 
   const { rows: appointmentsOnDate } = await pool.sql`
-      SELECT a.time, a."barberId", a."totalDuration" as duration
-      FROM appointments a
-      WHERE a."barbershopId" = ${barbershopId} AND a.date = ${dateString} AND a.status = 'scheduled'
+    SELECT a.time, a."barberId", a."totalDuration" as duration
+    FROM appointments a
+    WHERE a."barbershopId" = ${barbershopId} AND a.date = ${dateString} AND a.status = 'scheduled'
   `;
 
-  let potentialSlots: string[] = [];
-  const addSlotsFromSchedule = (schedule: {start: string, end: string} | undefined) => {
+  const addSlotsFromSchedule = (schedule: { start: string, end: string }, slotsSet: Set<string>) => {
     if (!schedule) return;
     const [startHour, startMinute] = schedule.start.split(':').map(Number);
     const [endHour, endMinute] = schedule.end.split(':').map(Number);
@@ -850,57 +864,64 @@ export const mockGetAvailableTimeSlots = async (
     while (isBefore(slotStart, dayEnd)) {
       const slotEnd = addMinutes(slotStart, serviceDuration);
       if (isBefore(slotEnd, dayEnd) || isEqual(slotEnd, dayEnd)) {
-        potentialSlots.push(format(slotStart, 'HH:mm'));
+        slotsSet.add(format(slotStart, 'HH:mm'));
       }
       slotStart = addMinutes(slotStart, TIME_SLOTS_INTERVAL);
     }
   };
-  
-  const barberSchedules = relevantBarbers.map(b => b.availableHours.find(h => h.dayOfWeek === dayOfWeek)).filter(Boolean);
-  
-  if (barberSchedules.length > 0) {
-    barberSchedules.forEach(schedule => addSlotsFromSchedule(schedule as {start: string, end: string}));
-  } else if (shopWorkingHoursToday?.isOpen) {
-    addSlotsFromSchedule(shopWorkingHoursToday);
-  }
-  
-  potentialSlots = [...new Set(potentialSlots)].sort();
+
+  const allPotentialSlots = new Set<string>();
+  relevantBarbers.forEach(barber => {
+    const barberScheduleToday = barber.availableHours.find(h => h.dayOfWeek === dayOfWeek);
+    if (barberScheduleToday && barberScheduleToday.start && barberScheduleToday.end) {
+      addSlotsFromSchedule(barberScheduleToday, allPotentialSlots);
+    } else if (shopWorkingHoursToday?.isOpen) {
+      addSlotsFromSchedule(shopWorkingHoursToday, allPotentialSlots);
+    }
+  });
+
+  const potentialSlots = [...allPotentialSlots].sort();
 
   const availableSlots = potentialSlots.filter(slot => {
     const slotStart = parse(slot, 'HH:mm', selectedDate);
     const slotEnd = addMinutes(slotStart, serviceDuration);
 
-    const relevantAppointments = barberId 
-        ? appointmentsOnDate.filter(app => app.barberId === barberId)
-        : appointmentsOnDate;
+    const barbersWorkingInSlot = relevantBarbers.filter(barber => {
+      const barberScheduleToday = barber.availableHours.find(h => h.dayOfWeek === dayOfWeek) || (shopWorkingHoursToday?.isOpen ? shopWorkingHoursToday : null);
+      if (!barberScheduleToday || !barberScheduleToday.start || !barberScheduleToday.end) return false;
+      
+      const barberWorkStart = parse(barberScheduleToday.start, 'HH:mm', selectedDate);
+      const barberWorkEnd = parse(barberScheduleToday.end, 'HH:mm', selectedDate);
+      
+      return (isEqual(slotStart, barberWorkStart) || isAfter(slotStart, barberWorkStart)) &&
+             (isEqual(slotEnd, barberWorkEnd) || isBefore(slotEnd, barberWorkEnd));
+    });
 
-    const isConflict = relevantAppointments.some(app => {
+    const busyBarbersInSlot = new Set<string>();
+    appointmentsOnDate.forEach(app => {
+      if (!app.barberId) return;
       const appStart = parse(app.time, 'HH:mm', selectedDate);
       const appEnd = addMinutes(appStart, app.duration);
-      return isBefore(slotStart, appEnd) && isBefore(appStart, slotEnd);
+      if (isBefore(slotStart, appEnd) && isBefore(appStart, slotEnd)) {
+        busyBarbersInSlot.add(app.barberId);
+      }
     });
 
-    if(isConflict) return false;
+    const availableBarbersInSlot = barbersWorkingInSlot.filter(barber => !busyBarbersInSlot.has(barber.id));
 
-    if (!barberId) {
-        const barbersBookedCount = appointmentsOnDate.filter(app => {
-            const appStart = parse(app.time, 'HH:mm', selectedDate);
-            const appEnd = addMinutes(appStart, app.duration);
-            return isBefore(slotStart, appEnd) && isBefore(appStart, slotEnd);
-        }).length;
-        return allBarbersInShop.length > barbersBookedCount;
+    if (barberId) {
+      return availableBarbersInSlot.some(b => b.id === barberId);
     }
 
+    return availableBarbersInSlot.length > 0;
+  });
+
+  const now = new Date();
+  return availableSlots.filter(slot => {
+    if (isSameDay(selectedDate, startOfDay(now))) {
+      const slotTime = parse(slot, 'HH:mm', new Date());
+      return isBefore(now, slotTime);
+    }
     return true;
   });
-  
-  const now = new Date();
-  return availableSlots
-    .filter(slot => {
-      if (isSameDay(selectedDate, startOfDay(now))) {
-        const slotTime = parse(slot, 'HH:mm', new Date());
-        return isBefore(now, slotTime);
-      }
-      return true;
-    });
 };

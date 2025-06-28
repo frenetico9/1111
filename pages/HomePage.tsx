@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../components/Button';
 import { NAVALHA_LOGO_URL, SUBSCRIPTION_PLANS } from '../constants';
 import { useAuth } from '../hooks/useAuth';
@@ -27,16 +27,16 @@ const HeroSection = () => (
         A plataforma definitiva para agendamento em barbearias. Simples para o cliente, poderosa para o seu negócio.
       </p>
       <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fade-in-up [animation-delay:600ms]">
-        <Link to="/signup/client">
+        <ReactRouterDOM.Link to="/signup/client">
           <Button size="lg" variant="primary" leftIcon={<span className="material-icons-outlined">calendar_today</span>}>
             Quero Agendar
           </Button>
-        </Link>
-        <Link to="/signup/barbershop">
+        </ReactRouterDOM.Link>
+        <ReactRouterDOM.Link to="/signup/barbershop">
           <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-text-dark" leftIcon={<span className="material-icons-outlined">content_cut</span>}>
             Sou uma Barbearia
           </Button>
-        </Link>
+        </ReactRouterDOM.Link>
       </div>
     </div>
   </section>
@@ -67,9 +67,9 @@ const FeaturesSection = () => (
         </div>
       </div>
       <div className="text-center mt-12">
-        <Link to="/features">
+        <ReactRouterDOM.Link to="/features">
           <Button size="lg" variant="outline">Conhecer Todas as Funcionalidades</Button>
-        </Link>
+        </ReactRouterDOM.Link>
       </div>
     </div>
   </section>
@@ -102,9 +102,9 @@ const BarbershopShowcaseCard: React.FC<{ barbershop: BarbershopSearchResultItem 
                     </div>
                 </div>
                 <p className="text-xs text-text-light truncate mb-4 h-8" title={barbershop.address}>{barbershop.address}</p>
-                <Link to={`/barbershop/${barbershop.id}`}>
+                <ReactRouterDOM.Link to={`/barbershop/${barbershop.id}`}>
                     <Button variant="primary" fullWidth size="sm">Ver e Agendar</Button>
-                </Link>
+                </ReactRouterDOM.Link>
             </div>
         </div>
     );
@@ -153,9 +153,9 @@ const BarbershopShowcaseSection: React.FC<{isLoggedIn: boolean}> = ({ isLoggedIn
                     )
                 )}
                  <div className="text-center mt-12">
-                    <Link to="/client/find-barbershops">
+                    <ReactRouterDOM.Link to="/client/find-barbershops">
                         <Button variant="outline" size="lg">Ver Todas as Barbearias</Button>
-                    </Link>
+                    </ReactRouterDOM.Link>
                 </div>
             </div>
         </section>
@@ -189,7 +189,7 @@ const SimplePlanCard: React.FC<{plan: SubscriptionPlan}> = ({plan}) => {
               ))}
             </ul>
           </div>
-          <Link to="/signup/barbershop" className="block mt-auto">
+          <ReactRouterDOM.Link to="/signup/barbershop" className="block mt-auto">
              <Button 
                 className="w-full"
                 variant={isPro ? 'primary' : 'outline'}
@@ -197,7 +197,7 @@ const SimplePlanCard: React.FC<{plan: SubscriptionPlan}> = ({plan}) => {
               >
                 {isPro ? 'Assinar PRO' : 'Começar Grátis'}
               </Button>
-          </Link>
+          </ReactRouterDOM.Link>
         </div>
     );
 };
@@ -213,12 +213,12 @@ const PricingSection = () => (
                 {SUBSCRIPTION_PLANS.map(plan => <SimplePlanCard key={plan.id} plan={plan} />)}
             </div>
              <div className="text-center mt-12">
-                <Link to="/plans">
+                <ReactRouterDOM.Link to="/plans">
                     <Button size="lg" variant="ghost" className="text-primary-blue hover:bg-light-blue">
                         Comparar todos os recursos
                         <span className="material-icons-outlined text-sm ml-2">arrow_forward</span>
                     </Button>
-                </Link>
+                </ReactRouterDOM.Link>
             </div>
         </div>
     </section>
@@ -279,9 +279,9 @@ const CTASection = () => (
             <p className="text-lg text-blue-200 mb-8 max-w-2xl mx-auto">
                 Junte-se a centenas de barbearias que já estão transformando sua gestão com o Navalha Digital.
             </p>
-            <Link to="/signup/barbershop">
+            <ReactRouterDOM.Link to="/signup/barbershop">
                 <Button size="lg" className="bg-white text-primary-blue hover:bg-light-blue transform hover:scale-105">Cadastrar Minha Barbearia Agora</Button>
-            </Link>
+            </ReactRouterDOM.Link>
         </div>
     </section>
 );

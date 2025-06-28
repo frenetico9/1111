@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 
 // Common Pages
@@ -53,10 +53,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   }
 
   if (!user || !allowedRoles.includes(user.type)) {
-    return <Navigate to="/login" replace />;
+    return <ReactRouterDOM.Navigate to="/login" replace />;
   }
 
-  return <Outlet />; // Render child routes
+  return <ReactRouterDOM.Outlet />; // Render child routes
 };
 
 const App: React.FC = () => {
@@ -75,57 +75,57 @@ const App: React.FC = () => {
   };
 
   return (
-    <HashRouter>
+    <ReactRouterDOM.HashRouter>
       {showLgpdModal && <LgpdConsentModal onAccept={handleLgpdAccept} />}
       <NotificationContainer />
-      <Routes>
+      <ReactRouterDOM.Routes>
         {/* Public Routes with General Layout */}
-        <Route element={<Layout><Outlet /></Layout>}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup/client" element={<ClientSignupPage />} />
-          <Route path="/signup/barbershop" element={<BarbershopSignupPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/plans" element={<PlansPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms-of-use" element={<TermsOfUsePage />} />
-          <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-          <Route path="/barbershop/:barbershopId" element={<BarbershopPublicPage />} />
-          <Route path="/barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
-        </Route>
+        <ReactRouterDOM.Route element={<Layout><ReactRouterDOM.Outlet /></Layout>}>
+          <ReactRouterDOM.Route path="/" element={<HomePage />} />
+          <ReactRouterDOM.Route path="/login" element={<LoginPage />} />
+          <ReactRouterDOM.Route path="/signup/client" element={<ClientSignupPage />} />
+          <ReactRouterDOM.Route path="/signup/barbershop" element={<BarbershopSignupPage />} />
+          <ReactRouterDOM.Route path="/features" element={<FeaturesPage />} />
+          <ReactRouterDOM.Route path="/plans" element={<PlansPage />} />
+          <ReactRouterDOM.Route path="/contact" element={<ContactPage />} />
+          <ReactRouterDOM.Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <ReactRouterDOM.Route path="/terms-of-use" element={<TermsOfUsePage />} />
+          <ReactRouterDOM.Route path="/cookie-policy" element={<CookiePolicyPage />} />
+          <ReactRouterDOM.Route path="/barbershop/:barbershopId" element={<BarbershopPublicPage />} />
+          <ReactRouterDOM.Route path="/barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
+        </ReactRouterDOM.Route>
 
         {/* Client Routes */}
-        <Route element={<ProtectedRoute allowedRoles={['client']} />}>
-          <Route path="/client" element={<ClientDashboardLayout />}>
-            <Route index element={<Navigate to="appointments" replace />} />
-            <Route path="appointments" element={<ClientAppointmentsPage />} />
-            <Route path="profile" element={<ClientProfilePage />} />
-            <Route path="find-barbershops" element={<ClientFindBarbershopsPage />} /> {/* New Route */}
-          </Route>
-        </Route>
+        <ReactRouterDOM.Route element={<ProtectedRoute allowedRoles={['client']} />}>
+          <ReactRouterDOM.Route path="/client" element={<ClientDashboardLayout />}>
+            <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="appointments" replace />} />
+            <ReactRouterDOM.Route path="appointments" element={<ClientAppointmentsPage />} />
+            <ReactRouterDOM.Route path="profile" element={<ClientProfilePage />} />
+            <ReactRouterDOM.Route path="find-barbershops" element={<ClientFindBarbershopsPage />} /> {/* New Route */}
+          </ReactRouterDOM.Route>
+        </ReactRouterDOM.Route>
 
         {/* Admin Routes */}
-        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <Route path="/admin" element={<AdminDashboardLayout />}>
-            <Route index element={<Navigate to="overview" replace />} />
-            <Route path="overview" element={<AdminOverviewPage />} />
-            <Route path="appointments" element={<AdminAppointmentsPage />} />
-            <Route path="services" element={<AdminServicesPage />} />
-            <Route path="team" element={<AdminTeamPage />} />
-            <Route path="clients" element={<AdminClientsPage />} />
-            <Route path="reviews" element={<AdminReviewsPage />} />
-            <Route path="subscription" element={<AdminSubscriptionPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
-        </Route>
+        <ReactRouterDOM.Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <ReactRouterDOM.Route path="/admin" element={<AdminDashboardLayout />}>
+            <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="overview" replace />} />
+            <ReactRouterDOM.Route path="overview" element={<AdminOverviewPage />} />
+            <ReactRouterDOM.Route path="appointments" element={<AdminAppointmentsPage />} />
+            <ReactRouterDOM.Route path="services" element={<AdminServicesPage />} />
+            <ReactRouterDOM.Route path="team" element={<AdminTeamPage />} />
+            <ReactRouterDOM.Route path="clients" element={<AdminClientsPage />} />
+            <ReactRouterDOM.Route path="reviews" element={<AdminReviewsPage />} />
+            <ReactRouterDOM.Route path="subscription" element={<AdminSubscriptionPage />} />
+            <ReactRouterDOM.Route path="settings" element={<AdminSettingsPage />} />
+          </ReactRouterDOM.Route>
+        </ReactRouterDOM.Route>
         
         {/* Fallback for unmatched routes within general layout */}
-        <Route element={<Layout><Outlet /></Layout>}>
-            <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+        <ReactRouterDOM.Route element={<Layout><ReactRouterDOM.Outlet /></Layout>}>
+            <ReactRouterDOM.Route path="*" element={<NotFoundPage />} />
+        </ReactRouterDOM.Route>
+      </ReactRouterDOM.Routes>
+    </ReactRouterDOM.HashRouter>
   );
 };
 

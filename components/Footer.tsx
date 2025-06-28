@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import Button from './Button';
 import Input from './Input';
@@ -12,7 +12,7 @@ const SocialIcon: React.FC<{ href: string; children: React.ReactNode }> = ({ hre
 );
 
 const FooterLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
-    <Link to={to} className="text-gray-400 hover:text-white transition-colors text-sm">{children}</Link>
+    <ReactRouterDOM.Link to={to} className="text-gray-400 hover:text-white transition-colors text-sm">{children}</ReactRouterDOM.Link>
 );
 
 

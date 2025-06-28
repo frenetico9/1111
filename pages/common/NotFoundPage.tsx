@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 import BackButton from '../../components/BackButton';
 
@@ -18,12 +18,12 @@ const NotFoundPage: React.FC = () => {
       </p>
       <div className="flex flex-wrap items-center justify-center gap-4">
         <BackButton />
-        <Link to="/">
+        <ReactRouterDOM.Link to="/">
           <Button variant="primary" size="md">
             <span className="material-icons-outlined mr-2">home</span>
             Ir para a Página Inicial
           </Button>
-        </Link>
+        </ReactRouterDOM.Link>
       </div>
     </div>
   );

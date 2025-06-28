@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { BarbershopSearchResultItem, SubscriptionPlanTier } from '../types';
 import Button from './Button';
 import StarRating from './StarRating';
@@ -64,12 +64,12 @@ const BarbershopSearchCard: React.FC<BarbershopSearchCardProps> = ({ barbershop 
          )}
       </div>
 
-      <Link to={`/barbershop/${barbershop.id}`} className="block mt-4">
+      <ReactRouterDOM.Link to={`/barbershop/${barbershop.id}`} className="block mt-4">
         <Button variant="primary" fullWidth>
           Ver Detalhes e Agendar
           <span className="material-icons-outlined text-sm ml-2">arrow_forward</span>
         </Button>
-      </Link>
+      </ReactRouterDOM.Link>
     </div>
   );
 };

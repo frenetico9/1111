@@ -1,12 +1,12 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import AdminSidebar from '../../components/Sidebar';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../../components/Button';
 
 const AdminDashboardLayout: React.FC = () => {
   const { user, barbershopProfile, logout } = useAuth();
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
 
   const handleLogout = () => {
     logout();
@@ -33,7 +33,7 @@ const AdminDashboardLayout: React.FC = () => {
           </div>
         </header>
         <main className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto">
-          <Outlet /> {/* Content of admin pages will be rendered here */}
+          <ReactRouterDOM.Outlet /> {/* Content of admin pages will be rendered here */}
         </main>
       </div>
     </div>

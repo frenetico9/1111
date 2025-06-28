@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { BarbershopProfile, Service, Barber, Appointment } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { 
@@ -20,16 +20,17 @@ import { ptBR } from 'date-fns/locale';
 import BackButton from '../../components/BackButton';
 
 const BookingPage: React.FC = () => {
-  const { barbershopId, serviceId } = useParams<{ barbershopId: string, serviceId: string }>();
+  const { barbershopId, serviceId } = ReactRouterDOM.useParams<{ barbershopId: string, serviceId: string }>();
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation(); // To redirect back after login
+  const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation(); // To redirect back after login
   const { addNotification } = useNotification();
 
   const [barbershop, setBarbershop] = useState<BarbershopProfile | null>(null);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [allBarbersInShop, setAllBarbersInShop] = useState<Barber[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]); // This is the filtered list for the dropdown
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Default to today
   const [selectedBarberId, setSelectedBarberId] = useState<string>(''); // Empty string for "any barber"
@@ -67,9 +68,9 @@ const BookingPage: React.FC = () => {
         setSelectedServiceIds([serviceId]);
       }
 
-      // Barbers don't depend on a single service anymore in this view
       const barbersData = await mockGetBarbersForBarbershop(barbershopId);
-      setBarbers(barbersData);
+      setAllBarbersInShop(barbersData);
+      setBarbers(barbersData); // Initially show all barbers
       
     } catch (error) {
       addNotification({ message: 'Erro ao carregar dados para agendamento.', type: 'error' });
@@ -83,6 +84,25 @@ const BookingPage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  // Filter barbers based on selected services
+  useEffect(() => {
+    if (selectedServiceIds.length === 0) {
+        setBarbers(allBarbersInShop);
+        return;
+    }
+
+    const qualifiedBarbers = allBarbersInShop.filter(barber =>
+        selectedServiceIds.every(serviceId => barber.assignedServices.includes(serviceId))
+    );
+    setBarbers(qualifiedBarbers);
+
+    // If the currently selected barber is no longer in the filtered list, reset the selection.
+    if (selectedBarberId && !qualifiedBarbers.some(b => b.id === selectedBarberId)) {
+        setSelectedBarberId(''); // Reset to "any barber"
+    }
+  }, [selectedServiceIds, allBarbersInShop, selectedBarberId]);
+
+
   const { totalDuration, totalPrice, selectedServices } = useMemo(() => {
     const selected = allServices.filter(s => selectedServiceIds.includes(s.id));
     const duration = selected.reduce((sum, s) => sum + s.duration, 0);
@@ -91,7 +111,10 @@ const BookingPage: React.FC = () => {
   }, [selectedServiceIds, allServices]);
 
   const fetchSlots = useCallback(async () => {
-    if (!selectedDate || totalDuration === 0 || !barbershopId || !barbershop) return;
+    if (!selectedDate || totalDuration === 0 || !barbershopId || !barbershop) {
+      setAvailableSlots([]);
+      return;
+    };
     setLoadingSlots(true);
     setSelectedTime(null);
     try {
@@ -99,6 +122,7 @@ const BookingPage: React.FC = () => {
         barbershopId,
         totalDuration,
         format(selectedDate, 'yyyy-MM-dd'),
+        selectedServiceIds,
         selectedBarberId || null
       );
       setAvailableSlots(slots);
@@ -108,7 +132,7 @@ const BookingPage: React.FC = () => {
     } finally {
       setLoadingSlots(false);
     }
-  }, [selectedDate, totalDuration, barbershopId, selectedBarberId, addNotification, barbershop]);
+  }, [selectedDate, totalDuration, barbershopId, selectedBarberId, addNotification, barbershop, selectedServiceIds]);
 
   useEffect(() => {
     if (barbershop) {
@@ -157,7 +181,7 @@ const BookingPage: React.FC = () => {
   };
 
   if (loadingData || authLoading) return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner size="lg" label="Carregando dados do agendamento..." /></div>;
-  if (!barbershop) return <div className="text-center text-red-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Não foi possível carregar os dados do agendamento. <Link to="/"><Button>Voltar</Button></Link></div>;
+  if (!barbershop) return <div className="text-center text-red-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Não foi possível carregar os dados do agendamento. <ReactRouterDOM.Link to="/"><Button>Voltar</Button></ReactRouterDOM.Link></div>;
 
   return (
     <div className="container mx-auto p-4 md:p-6">
@@ -193,7 +217,7 @@ const BookingPage: React.FC = () => {
               </div>
             </div>
 
-            {barbers.length > 0 && (
+            {allBarbersInShop.length > 0 && (
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold text-text-dark mb-3">2. Escolha o Barbeiro <span className="text-gray-500 text-sm">(Opcional)</span></h2>
                 <select
@@ -201,12 +225,16 @@ const BookingPage: React.FC = () => {
                   onChange={(e) => setSelectedBarberId(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue shadow-sm text-sm"
                   aria-label="Selecionar barbeiro"
+                  disabled={selectedServiceIds.length > 0 && barbers.length === 0}
                 >
                   <option value="">Qualquer Barbeiro Disponível</option>
                   {barbers.map(barber => (
                     <option key={barber.id} value={barber.id}>{barber.name}</option>
                   ))}
                 </select>
+                {selectedServiceIds.length > 0 && barbers.length === 0 && (
+                  <p className="text-xs text-red-600 mt-1">Nenhum barbeiro pode realizar todos os serviços selecionados.</p>
+                )}
               </div>
             )}
           </div>
