@@ -1,18 +1,18 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 
 const NavLinkItem: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
-  <ReactRouterDOM.Link to={to} className="text-sm font-medium text-text-dark hover:text-primary-blue transition-colors duration-200">
+  <Link to={to} className="text-sm font-medium text-text-dark hover:text-primary-blue transition-colors duration-200">
     {children}
-  </ReactRouterDOM.Link>
+  </Link>
 );
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
@@ -23,10 +23,10 @@ const Header: React.FC = () => {
     <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
-          <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 group">
+          <Link to="/" className="flex items-center space-x-2 group">
             <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
             <span className="text-2xl font-bold text-text-dark group-hover:text-primary-blue transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
-          </ReactRouterDOM.Link>
+          </Link>
           
           <nav className="hidden md:flex items-center space-x-8">
             <NavLinkItem to="/">Início</NavLinkItem>

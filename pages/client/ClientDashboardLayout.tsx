@@ -1,11 +1,11 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { NAVALHA_LOGO_URL } from '../../constants';
 import Button from '../../components/Button';
 
 const ClientSidebarLink: React.FC<{ to: string; children: React.ReactNode; iconName: string }> = ({ to, children, iconName }) => (
-  <ReactRouterDOM.NavLink
+  <NavLink
     to={to}
     end // Ensures exact match for index-like routes if needed
     className={({ isActive }) =>
@@ -20,12 +20,12 @@ const ClientSidebarLink: React.FC<{ to: string; children: React.ReactNode; iconN
       {iconName}
     </span>
     <span>{children}</span>
-  </ReactRouterDOM.NavLink>
+  </NavLink>
 );
 
 const ClientDashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
@@ -35,7 +35,7 @@ const ClientDashboardLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-60 bg-white shadow-lg p-4 space-y-2 flex flex-col h-screen sticky top-0">
-        <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue group">
+        <Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue group">
           <div className="bg-primary-blue rounded-full p-2 w-16 h-16 flex items-center justify-center group-hover:opacity-80 transition-opacity flex-shrink-0">
             <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
           </div>
@@ -43,7 +43,7 @@ const ClientDashboardLayout: React.FC = () => {
             <h2 className="text-lg font-bold text-primary-blue group-hover:opacity-80 transition-opacity leading-tight">Cliente</h2>
             {user && <p className="text-xs text-text-light truncate max-w-[120px]">{user.name || user.email}</p>}
           </div>
-        </ReactRouterDOM.Link>
+        </Link>
         <nav className="space-y-1.5 flex-grow">
           <ClientSidebarLink to="/client/appointments" iconName="event_note">Meus Agendamentos</ClientSidebarLink>
           <ClientSidebarLink to="/client/profile" iconName="person">Meu Perfil</ClientSidebarLink>
@@ -56,7 +56,7 @@ const ClientDashboardLayout: React.FC = () => {
         </div>
       </aside>
       <main className="flex-grow p-6 sm:p-8 overflow-y-auto">
-        <ReactRouterDOM.Outlet />
+        <Outlet />
       </main>
     </div>
   );

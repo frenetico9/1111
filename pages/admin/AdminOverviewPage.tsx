@@ -4,9 +4,12 @@ import { Appointment, Service, Review, User, UserType } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { mockGetAdminAppointments, mockGetServicesForBarbershop, mockGetReviewsForBarbershop, mockGetClientsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { format, endOfWeek, isWithinInterval, parseISO, subDays, startOfWeek } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import * as ReactRouterDOM from 'react-router-dom';
+import { format, endOfWeek, isWithinInterval } from 'date-fns';
+import parseISO from 'date-fns/parseISO';
+import subDays from 'date-fns/subDays';
+import startOfWeek from 'date-fns/startOfWeek';
+import ptBR from 'date-fns/locale/pt-BR';
+import { Link } from 'react-router-dom';
 import Button from '../../components/Button';
 import { PRIMARY_BLUE } from '../../constants';
 
@@ -24,7 +27,7 @@ const StatCard: React.FC<{ title: string; value: string | number; iconName?: str
       {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
     </div>
   );
-  return to ? <ReactRouterDOM.Link to={to} className="block h-full">{content}</ReactRouterDOM.Link> : <div className="h-full">{content}</div>;
+  return to ? <Link to={to} className="block h-full">{content}</Link> : <div className="h-full">{content}</div>;
 };
 
 const AdminOverviewPage: React.FC = () => {
@@ -71,7 +74,10 @@ const AdminOverviewPage: React.FC = () => {
 
     const totalRevenue = appointments
       .filter(a => a.status === 'completed')
-      .reduce((sum, app) => sum + app.totalPrice, 0);
+      .reduce((sum, app) => {
+          const service = services.find(s => s.id === app.serviceId);
+          return sum + (service?.price || 0);
+      }, 0);
     
     const appointmentsToday = appointments.filter(a => a.date === todayStr).length;
     const appointmentsThisWeek = appointments.filter(a => isWithinInterval(parseISO(a.date), {start: startOfCurrentWeek, end: endOfCurrentWeek })).length;
@@ -174,10 +180,10 @@ const AdminOverviewPage: React.FC = () => {
       <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue">
         <h2 className="text-lg sm:text-xl font-semibold text-primary-blue mb-4">Ações Rápidas</h2>
         <div className="flex flex-wrap gap-3">
-          <ReactRouterDOM.Link to="/admin/appointments"><Button variant="primary" leftIcon={<span className="material-icons-outlined">event</span>}>Ver Agendamentos</Button></ReactRouterDOM.Link>
-          <ReactRouterDOM.Link to="/admin/services"><Button variant="outline" leftIcon={<span className="material-icons-outlined">add_circle_outline</span>}>Novo Serviço</Button></ReactRouterDOM.Link>
-          <ReactRouterDOM.Link to="/admin/team"><Button variant="outline" leftIcon={<span className="material-icons-outlined">person_add</span>}>Novo Barbeiro</Button></ReactRouterDOM.Link>
-          <ReactRouterDOM.Link to="/admin/settings"><Button variant="ghost" leftIcon={<span className="material-icons-outlined">settings</span>}>Configurações</Button></ReactRouterDOM.Link>
+          <Link to="/admin/appointments"><Button variant="primary" leftIcon={<span className="material-icons-outlined">event</span>}>Ver Agendamentos</Button></Link>
+          <Link to="/admin/services"><Button variant="outline" leftIcon={<span className="material-icons-outlined">add_circle_outline</span>}>Novo Serviço</Button></Link>
+          <Link to="/admin/team"><Button variant="outline" leftIcon={<span className="material-icons-outlined">person_add</span>}>Novo Barbeiro</Button></Link>
+          <Link to="/admin/settings"><Button variant="ghost" leftIcon={<span className="material-icons-outlined">settings</span>}>Configurações</Button></Link>
         </div>
       </div>
     </div>

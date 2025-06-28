@@ -1,9 +1,8 @@
 
 
 
-
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from '../../hooks/useForm';
 import { useAuth } from '../../hooks/useAuth';
 import Input from '../../components/Input';
@@ -14,8 +13,8 @@ import { UserType } from '../../types';
 import BackButton from '../../components/BackButton';
 
 const LoginPage: React.FC = () => {
-  const navigate = ReactRouterDOM.useNavigate();
-  const location = ReactRouterDOM.useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { login, loading: authLoading } = useAuth();
   const { addNotification } = useNotification();
   
@@ -65,12 +64,12 @@ const LoginPage: React.FC = () => {
       {/* Form Column */}
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md">
-          <ReactRouterDOM.Link to="/" className="flex flex-col items-center mb-6 group">
+          <Link to="/" className="flex flex-col items-center mb-6 group">
             <div className="bg-primary-blue rounded-full p-3 sm:p-4 w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center group-hover:opacity-80 transition-opacity">
               <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
             </div>
             <h2 className="mt-4 text-2xl sm:text-3xl font-bold text-center text-primary-blue group-hover:opacity-80 transition-opacity">Login Navalha Digital</h2>
-          </ReactRouterDOM.Link>
+          </Link>
           <p className="mb-6 text-sm text-center text-gray-600">Acesse sua conta para continuar.</p>
           
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -105,13 +104,13 @@ const LoginPage: React.FC = () => {
 
           <p className="mt-8 text-xs sm:text-sm text-center text-gray-600">
             Não tem uma conta?{' '}
-            <ReactRouterDOM.Link to="/signup/client" className="font-medium text-primary-blue hover:underline">
+            <Link to="/signup/client" className="font-medium text-primary-blue hover:underline">
               Cadastre-se como Cliente
-            </ReactRouterDOM.Link>
+            </Link>
             <br className="sm:hidden"/> <span className="hidden sm:inline">ou</span>{' '}
-            <ReactRouterDOM.Link to="/signup/barbershop" className="font-medium text-primary-blue hover:underline">
+            <Link to="/signup/barbershop" className="font-medium text-primary-blue hover:underline">
               Cadastre sua Barbearia
-            </ReactRouterDOM.Link>
+            </Link>
           </p>
             <div className="mt-6 text-center">
                 <BackButton />

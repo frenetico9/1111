@@ -1,7 +1,7 @@
 import React from 'react';
 import { Service } from '../types';
 import Button from './Button';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 interface ServiceCardProps {
   service: Service;
@@ -47,14 +47,14 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
       ) : (
         service.isActive ? (
-          <ReactRouterDOM.Link to={`/barbershop/${barbershopId}/book/${service.id}`} className="block mt-4">
+          <Link to={`/barbershop/${barbershopId}/book/${service.id}`} className="block mt-4">
             <Button 
               variant="primary" 
               fullWidth
             >
               Agendar Serviço
             </Button>
-          </ReactRouterDOM.Link>
+          </Link>
         ) : (
           <p className="text-sm text-center text-red-500 mt-4 font-medium">Serviço indisponível</p>
         )

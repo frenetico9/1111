@@ -43,7 +43,7 @@ const AdminAppointmentsPage: React.FC = () => {
   
   const initialFormData = {
     clientId: '',
-    serviceIds: [] as string[],
+    serviceId: '',
     barberId: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     time: '09:00',
@@ -152,7 +152,7 @@ const AdminAppointmentsPage: React.FC = () => {
       setSelectedAppointment(appointmentToEdit);
       setFormData({
         clientId: appointmentToEdit.clientId,
-        serviceIds: appointmentToEdit.serviceIds,
+        serviceId: appointmentToEdit.serviceId,
         barberId: appointmentToEdit.barberId || '',
         date: appointmentToEdit.date, // Already YYYY-MM-DD
         time: appointmentToEdit.time, // Already HH:MM
@@ -170,43 +170,30 @@ const AdminAppointmentsPage: React.FC = () => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleServiceCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    setFormData(prev => {
-        const newServiceIds = checked
-            ? [...prev.serviceIds, value]
-            : prev.serviceIds.filter(id => id !== value);
-        return { ...prev, serviceIds: newServiceIds };
-    });
-  };
-
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
-    // For editing, we don't change services for now to keep it simple
-    if (isEditing && selectedAppointment) {
-      const appointmentData = { ...formData, serviceIds: selectedAppointment.serviceIds };
-      handleAction(
-        () => mockUpdateAppointment(selectedAppointment.id, appointmentData),
-        'Agendamento atualizado!', 'Erro ao atualizar.', setShowUpsertModal
-      );
-      return;
-    }
 
-    // For creating new
-    if (!formData.clientId || formData.serviceIds.length === 0 || !formData.date || !formData.time) {
-        addNotification({ message: "Cliente, serviço(s), data e hora são obrigatórios.", type: "error"});
+    const appointmentData = {
+      ...formData,
+      barbershopId: user.id,
+      status: (isEditing && selectedAppointment) ? selectedAppointment.status : 'scheduled', // Keep status if editing, else scheduled
+    };
+    
+    if (!appointmentData.clientId || !appointmentData.serviceId || !appointmentData.date || !appointmentData.time) {
+        addNotification({ message: "Cliente, serviço, data e hora são obrigatórios.", type: "error"});
         return;
     }
     
-    const appointmentDataWithId = {
-      ...formData,
-      barbershopId: user.id,
-    };
+    const actionPromise = isEditing && selectedAppointment 
+      ? mockUpdateAppointment(selectedAppointment.id, appointmentData)
+      : mockCreateAppointment(appointmentData as Omit<Appointment, 'id' | 'createdAt'>);
+      
     handleAction(
-      () => mockCreateAppointment(appointmentDataWithId),
-      'Agendamento criado!', 'Erro ao criar.', setShowUpsertModal
+      () => actionPromise,
+      isEditing ? 'Agendamento atualizado!' : 'Agendamento criado!',
+      isEditing ? 'Erro ao atualizar.' : 'Erro ao criar.',
+      setShowUpsertModal
     );
   };
 
@@ -280,7 +267,7 @@ const AdminAppointmentsPage: React.FC = () => {
         title="Confirmar Cancelamento"
         footer={<><Button variant="secondary" onClick={() => setShowCancelModal(false)} disabled={isSubmittingForm}>Voltar</Button><Button variant="danger" onClick={handleCancelAppointment} isLoading={isSubmittingForm}>Confirmar</Button></>}>
         <p>Tem certeza que deseja cancelar este agendamento?</p>
-        {selectedAppointment && <p className="text-sm mt-1">Serviço: {selectedAppointment.serviceNames?.join(', ')} para {selectedAppointment.clientName}</p>}
+        {selectedAppointment && <p className="text-sm mt-1">Serviço: {selectedAppointment.serviceName} para {selectedAppointment.clientName}</p>}
       </Modal>
 
       {/* Upsert Appointment Modal */}
@@ -294,26 +281,11 @@ const AdminAppointmentsPage: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Serviços *</label>
-            {isEditing && selectedAppointment ? (
-                <p className="text-sm p-2 bg-gray-100 rounded-md">Serviços: {selectedAppointment.serviceNames?.join(', ')} (não editável)</p>
-            ) : (
-                <div className="grid grid-cols-2 gap-2 border p-2 rounded-md max-h-40 overflow-y-auto mt-1">
-                    {services.map(s => (
-                        <div key={s.id} className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id={`admin-service-${s.id}`}
-                                value={s.id}
-                                checked={formData.serviceIds.includes(s.id)}
-                                onChange={handleServiceCheckboxChange}
-                                className="h-4 w-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
-                            />
-                            <label htmlFor={`admin-service-${s.id}`} className="ml-2 text-sm text-gray-700">{s.name}</label>
-                        </div>
-                    ))}
-                </div>
-            )}
+            <label htmlFor="serviceId" className="block text-sm font-medium text-gray-700">Serviço *</label>
+            <select name="serviceId" id="serviceId" value={formData.serviceId} onChange={handleFormChange} required className="mt-1 block w-full p-2.5 border-gray-300 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue text-sm">
+              <option value="" disabled>Selecione um serviço</option>
+              {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.duration} min)</option>)}
+            </select>
           </div>
           <div>
             <label htmlFor="barberId" className="block text-sm font-medium text-gray-700">Barbeiro (Opcional)</label>

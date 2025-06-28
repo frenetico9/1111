@@ -9,11 +9,11 @@ import {
   isBefore,
   endOfDay,
   isAfter,
-  subMonths,
-  startOfMonth,
-  startOfDay,
 } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import subMonths from 'date-fns/subMonths';
+import startOfMonth from 'date-fns/startOfMonth';
+import startOfDay from 'date-fns/startOfDay';
+import ptBR from 'date-fns/locale/pt-BR';
 import Button from './Button';
 
 interface DatePickerProps {

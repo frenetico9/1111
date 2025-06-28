@@ -38,10 +38,8 @@ export interface Appointment {
   clientName?: string; // Denormalized for easier display
   barbershopId: string;
   barbershopName?: string; // Denormalized
-  serviceIds: string[];
-  serviceNames?: string[]; // Denormalized
-  totalPrice: number;
-  totalDuration: number;
+  serviceId: string;
+  serviceName?: string; // Denormalized
   barberId?: string; // Optional: if specific barber chosen
   barberName?: string; // Denormalized
   date: string; // YYYY-MM-DD

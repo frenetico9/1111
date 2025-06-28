@@ -1,8 +1,9 @@
 import React from 'react';
 import { Appointment, UserType } from '../types';
 import Button from './Button';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns';
+import parseISO from 'date-fns/parseISO';
+import ptBR from 'date-fns/locale/pt-BR';
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -54,14 +55,12 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const formattedDate = format(parseISO(appointment.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   const formattedTime = appointment.time;
 
-  const serviceNames = appointment.serviceNames?.join(', ') || 'Serviço não informado';
-
   return (
     <div className="p-5 rounded-lg shadow-xl border border-light-blue bg-white flex flex-col justify-between hover:shadow-2xl transition-shadow">
       <div>
         <div className="flex justify-between items-start mb-3">
           <div>
-            <h3 className="text-lg font-semibold text-primary-blue leading-tight" title={serviceNames}>{serviceNames}</h3>
+            <h3 className="text-lg font-semibold text-primary-blue leading-tight" title={appointment.serviceName}>{appointment.serviceName}</h3>
             {userType === UserType.ADMIN && <p className="text-xs text-gray-600">Cliente: {appointment.clientName || 'N/A'}</p>}
             {userType === UserType.CLIENT && appointment.barbershopName && <p className="text-xs text-gray-600">Barbearia: {appointment.barbershopName}</p>}
             {appointment.barberName && <p className="text-xs text-gray-600">Barbeiro: {appointment.barberName}</p>}
@@ -74,8 +73,6 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
         <div className="text-sm text-gray-700 space-y-1 mb-3">
           <p><span className="material-icons-outlined text-sm mr-1 align-bottom">calendar_today</span> {formattedDate}</p>
           <p><span className="material-icons-outlined text-sm mr-1 align-bottom">schedule</span> {formattedTime}</p>
-          <p><span className="material-icons-outlined text-sm mr-1 align-bottom">timelapse</span> Duração: {appointment.totalDuration} min</p>
-          <p><span className="material-icons-outlined text-sm mr-1 align-bottom">paid</span> Preço Total: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}</p>
         </div>
         
         {appointment.notes && <p className="text-xs text-gray-500 italic mb-3 bg-gray-50 p-2 rounded">Obs: {appointment.notes}</p>}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { BarbershopProfile, Service, Review as ReviewType } from '../../types';
 import { mockGetBarbershopProfile, mockGetServicesForBarbershop, mockGetReviewsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -11,7 +11,7 @@ import StarRating from '../../components/StarRating';
 import BackButton from '../../components/BackButton';
 
 const BarbershopPublicPage: React.FC = () => {
-  const { barbershopId } = ReactRouterDOM.useParams<{ barbershopId: string }>();
+  const { barbershopId } = useParams<{ barbershopId: string }>();
   const [barbershop, setBarbershop] = useState<BarbershopProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
@@ -61,7 +61,7 @@ const BarbershopPublicPage: React.FC = () => {
   }, [reviews]);
 
   if (loading) return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner size="lg" label="Carregando barbearia..." /></div>;
-  if (error) return <div className="text-center text-red-600 py-10 text-xl bg-white p-8 rounded-lg shadow-md">{error} <ReactRouterDOM.Link to="/"><Button variant="primary" className="mt-6">Voltar para Início</Button></ReactRouterDOM.Link></div>;
+  if (error) return <div className="text-center text-red-600 py-10 text-xl bg-white p-8 rounded-lg shadow-md">{error} <Link to="/"><Button variant="primary" className="mt-6">Voltar para Início</Button></Link></div>;
   if (!barbershop) return <div className="text-center text-gray-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Barbearia não encontrada.</div>;
 
   return (
