@@ -11,7 +11,7 @@ const NavLinkItem = React.memo<{ to: string; children: React.ReactNode; onClick?
   <ReactRouterDOM.NavLink
     to={to}
     onClick={onClick}
-    className="block md:inline-block py-3 md:py-0 px-4 md:px-0 text-lg md:text-sm font-medium text-text-dark hover:text-primary-blue transition-colors duration-200"
+    className="block md:inline-block py-3 md:py-0 px-4 md:px-0 text-lg md:text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200"
   >
     {children}
   </ReactRouterDOM.NavLink>
@@ -54,12 +54,12 @@ const Header: React.FC = () => {
   const showBackButton = location.pathname.startsWith('/barbershop/') || location.pathname.startsWith('/booking');
 
   const MainHeaderBar = (
-    <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-40">
+    <header className="bg-dark-bg shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 group">
               <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
-              <span className="text-xl sm:text-2xl font-bold text-text-dark group-hover:text-primary-blue transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
+              <span className="text-xl sm:text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
             </ReactRouterDOM.Link>
             
             <nav className="hidden md:flex items-center space-x-8">
@@ -79,7 +79,7 @@ const Header: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Button onClick={() => navigate('/login')} variant="ghost" size="sm">Login</Button>
+                  <Button onClick={() => navigate('/login')} size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">Login</Button>
                   <Button onClick={() => navigate('/signup/client')} variant="outline" size="sm">Cadastro Cliente</Button>
                   <Button 
                     onClick={() => navigate('/signup/barbershop')} 
@@ -103,7 +103,7 @@ const Header: React.FC = () => {
         {showBackButton && (
           <button
             onClick={() => navigate(-1)}
-            className="fixed top-5 left-4 z-[1001] p-2 rounded-md text-text-dark bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            className="fixed top-5 left-4 z-[1001] p-2 rounded-md text-white bg-dark-bg/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
             aria-label="Voltar"
           >
             <span className="material-icons-outlined text-3xl">arrow_back_ios_new</span>
@@ -111,7 +111,7 @@ const Header: React.FC = () => {
         )}
         <button 
           onClick={() => setIsMenuOpen(!isMenuOpen)} 
-          className="fixed top-5 right-4 z-[1001] p-2 rounded-md text-text-dark bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          className="fixed top-5 right-4 z-[1001] p-2 rounded-md text-white bg-dark-bg/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
           aria-label={isMenuOpen ? "Fechar menu" : "Abrir menu"}
           aria-controls="mobile-menu-panel"
           aria-expanded={isMenuOpen}
@@ -121,7 +121,7 @@ const Header: React.FC = () => {
 
         <div 
             id="mobile-menu-panel"
-            className={`fixed inset-0 z-[1000] bg-white transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`fixed inset-0 z-[1000] bg-dark-bg transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
         >
           <div className="flex flex-col items-center justify-center h-full pt-20">
               <nav className="flex flex-col items-center text-center space-y-6">
@@ -130,7 +130,7 @@ const Header: React.FC = () => {
                   <NavLinkItem to="/plans" onClick={closeMenu}>Planos</NavLinkItem>
                   <NavLinkItem to="/contact" onClick={closeMenu}>Contato</NavLinkItem>
               </nav>
-              <div className="mt-10 pt-8 border-t border-border-color w-full max-w-xs flex flex-col items-center space-y-4">
+              <div className="mt-10 pt-8 border-t border-gray-700 w-full max-w-xs flex flex-col items-center space-y-4">
                    {user ? (
                     <>
                       {user.type === 'client' && <Button onClick={() => { navigate('/client/appointments'); closeMenu(); }} size="md" variant="primary" fullWidth>Meus Agendamentos</Button>}
