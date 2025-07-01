@@ -9,18 +9,9 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import { useForm } from '../../hooks/useForm';
 import { useNotification } from '../../contexts/NotificationContext';
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 
 // Define a type for the form values, excluding properties managed by the backend
 type ServiceFormData = Omit<Service, 'id' | 'barbershopId'>;
-
-interface AIServiceSuggestion {
-  name: string;
-  description: string;
-  price: number;
-  duration: number;
-}
-
 
 const AdminServicesPage: React.FC = () => {
   const { user } = useAuth();
@@ -30,12 +21,6 @@ const AdminServicesPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentServiceId, setCurrentServiceId] = useState<string | null>(null); // Store only ID
-
-  // State for AI Assistant
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiSuggestions, setAiSuggestions] = useState<AIServiceSuggestion[]>([]);
 
   const initialServiceValues: ServiceFormData = {
     name: '',
@@ -125,63 +110,6 @@ const AdminServicesPage: React.FC = () => {
     }
   };
 
-  const handleGenerateSuggestions = async () => {
-    if (!aiPrompt.trim()) {
-      addNotification({ message: 'Por favor, descreva o tipo de serviço que você busca.', type: 'warning' });
-      return;
-    }
-    setIsGenerating(true);
-    setAiSuggestions([]);
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const prompt = `Com base na seguinte descrição: '${aiPrompt}', gere uma lista de 3 a 5 sugestões de serviços para uma barbearia. As sugestões devem ser criativas e adequadas ao público descrito. Para cada sugestão, inclua um nome, uma breve descrição, um preço sugerido (como um número) e uma duração em minutos (múltiplo de 15). Retorne a resposta como um array de objetos JSON válidos. O JSON deve ter o seguinte formato: [{"name": "string", "description": "string", "price": number, "duration": number}, ...]`;
-      
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-04-17',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        }
-      });
-
-      let jsonStr = response.text.trim();
-      const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-      const match = jsonStr.match(fenceRegex);
-      if (match && match[2]) {
-        jsonStr = match[2].trim();
-      }
-
-      try {
-        const parsedSuggestions: AIServiceSuggestion[] = JSON.parse(jsonStr);
-        setAiSuggestions(parsedSuggestions);
-      } catch (e) {
-        console.error("Failed to parse JSON response:", e, "\nRaw response:", jsonStr);
-        addNotification({ message: 'A IA retornou uma resposta em um formato inesperado. Tente novamente.', type: 'error' });
-      }
-
-    } catch (error) {
-      console.error("Gemini API error:", error);
-      addNotification({ message: `Erro ao gerar sugestões: ${(error as Error).message}`, type: 'error' });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleAddSuggestedService = (suggestion: AIServiceSuggestion) => {
-    setValues({
-      name: suggestion.name,
-      price: suggestion.price,
-      duration: suggestion.duration,
-      description: suggestion.description,
-      isActive: true, // Default to active
-    });
-    setIsEditing(false);
-    setCurrentServiceId(null);
-    setShowAIModal(false);
-    setShowModal(true);
-  };
-
   if (loading && services.length === 0) return <div className="flex justify-center items-center h-[calc(100vh-200px)]"><LoadingSpinner size="lg" /></div>;
 
   return (
@@ -189,9 +117,6 @@ const AdminServicesPage: React.FC = () => {
       <div className="flex flex-wrap justify-between items-center mb-6 sm:mb-8 gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue">Gerenciar Serviços</h1>
         <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setShowAIModal(true)} variant="outline" leftIcon={<span className="material-icons-outlined">auto_awesome</span>}>
-              Sugerir com IA
-            </Button>
             <Button onClick={() => handleOpenModal()} variant="primary" leftIcon={<span className="material-icons-outlined">add</span>}>
               Adicionar Serviço
             </Button>
@@ -218,54 +143,6 @@ const AdminServicesPage: React.FC = () => {
           ))}
         </div>
       )}
-
-      {/* AI Assistant Modal */}
-      <Modal isOpen={showAIModal} onClose={() => setShowAIModal(false)} title="Assistente de IA para Serviços" size="2xl">
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="ai-prompt" className="block text-sm font-medium text-text-dark mb-1">Descreva o tipo de serviço que você busca:</label>
-            <textarea
-              id="ai-prompt"
-              rows={3}
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-blue focus:border-primary-blue text-sm shadow-sm"
-              placeholder="Ex: 'serviços de luxo para barba', 'cortes modernos para jovens', 'tratamentos capilares relaxantes'"
-              disabled={isGenerating}
-            />
-          </div>
-          <Button onClick={handleGenerateSuggestions} isLoading={isGenerating}>Gerar Sugestões</Button>
-          
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            {isGenerating && <LoadingSpinner label="Gerando ideias..." />}
-            {!isGenerating && aiSuggestions.length > 0 && (
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                {aiSuggestions.map((suggestion, index) => (
-                  <div key={index} className="p-4 bg-light-blue rounded-lg shadow-sm">
-                    <h4 className="font-bold text-primary-blue">{suggestion.name}</h4>
-                    <p className="text-sm text-text-dark my-1">{suggestion.description}</p>
-                    <div className="flex items-center text-xs text-text-light space-x-4">
-                      <span>Preço Sugerido: <span className="font-semibold">R$ {suggestion.price.toFixed(2).replace('.', ',')}</span></span>
-                      <span>Duração: <span className="font-semibold">{suggestion.duration} min</span></span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      className="mt-2"
-                      onClick={() => handleAddSuggestedService(suggestion)}
-                    >
-                      Adicionar este serviço
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!isGenerating && aiSuggestions.length === 0 && aiPrompt && (
-              <p className="text-center text-gray-500">Nenhuma sugestão gerada. Tente refinar sua descrição.</p>
-            )}
-          </div>
-        </div>
-      </Modal>
 
       {/* Add/Edit Service Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={isEditing ? 'Editar Serviço' : 'Adicionar Novo Serviço'} size="lg">
