@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from '../../hooks/useForm';
@@ -29,10 +26,12 @@ const LoginPage: React.FC = () => {
       const loggedInUser = await login(formValues.email, formValues.password);
       if (loggedInUser) {
         addNotification({ message: 'Login bem-sucedido!', type: 'success' });
-        if (loggedInUser.type === UserType.ADMIN) {
-          navigate(from.startsWith('/admin') ? from : '/admin/overview', { replace: true });
+        if (from !== "/" && from !== "/login" && !from.startsWith('/signup')) {
+            navigate(from, { replace: true });
+        } else if (loggedInUser.type === UserType.ADMIN) {
+          navigate('/admin/overview', { replace: true });
         } else if (loggedInUser.type === UserType.CLIENT) {
-          navigate(from.startsWith('/client') ? from : '/client/appointments', { replace: true });
+          navigate('/client/appointments', { replace: true });
         } else {
           navigate('/', { replace: true }); // Fallback
         }
@@ -49,7 +48,7 @@ const LoginPage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-[calc(100vh-150px)] flex bg-white">
+    <div className="flex bg-white">
       {/* Image Column */}
       <div 
         className="hidden md:block md:w-1/2 lg:w-2/3 bg-cover bg-center relative"
@@ -65,7 +64,7 @@ const LoginPage: React.FC = () => {
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md">
           <Link to="/" className="flex flex-col items-center mb-6 group">
-            <div className="bg-primary-blue rounded-full p-3 sm:p-4 w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center group-hover:opacity-80 transition-opacity">
+            <div className="bg-primary-blue rounded-full p-3 w-32 h-32 flex items-center justify-center group-hover:opacity-80 transition-opacity">
               <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
             </div>
             <h2 className="mt-4 text-2xl sm:text-3xl font-bold text-center text-primary-blue group-hover:opacity-80 transition-opacity">Login Navalha Digital</h2>
@@ -85,18 +84,26 @@ const LoginPage: React.FC = () => {
               leftIcon={<span className="material-icons-outlined text-gray-400">email</span>}
               disabled={isSubmitting || authLoading}
             />
-            <Input
-              label="Senha"
-              name="password"
-              type="password"
-              value={values.password}
-              onChange={handleChange}
-              error={errors.password}
-              placeholder="Sua senha"
-              autoComplete="current-password"
-              leftIcon={<span className="material-icons-outlined text-gray-400">lock</span>}
-              disabled={isSubmitting || authLoading}
-            />
+            <div>
+              <Input
+                label="Senha"
+                name="password"
+                type="password"
+                value={values.password}
+                onChange={handleChange}
+                error={errors.password}
+                placeholder="Sua senha"
+                autoComplete="current-password"
+                leftIcon={<span className="material-icons-outlined text-gray-400">lock</span>}
+                disabled={isSubmitting || authLoading}
+                containerClassName="mb-1"
+              />
+              <div className="text-right text-xs">
+                  <Link to="/forgot-password" className="font-medium text-primary-blue hover:underline">
+                      Esqueceu a senha?
+                  </Link>
+              </div>
+            </div>
             <Button type="submit" fullWidth isLoading={isSubmitting || authLoading} size="lg">
               Entrar
             </Button>

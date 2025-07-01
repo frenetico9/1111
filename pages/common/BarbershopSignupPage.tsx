@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from '../../hooks/useForm';
@@ -58,7 +55,7 @@ const BarbershopSignupPage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-[calc(100vh-150px)] flex bg-white">
+    <div className="flex bg-white">
       {/* Image Column */}
       <div 
         className="hidden md:block md:w-1/2 lg:w-2/3 bg-cover bg-center relative"
@@ -71,10 +68,10 @@ const BarbershopSignupPage: React.FC = () => {
       </div>
 
       {/* Form Column */}
-      <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
+      <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md">
           <Link to="/" className="flex flex-col items-center mb-6 group">
-            <div className="bg-primary-blue rounded-full p-3 sm:p-4 w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center group-hover:opacity-80 transition-opacity">
+            <div className="bg-primary-blue rounded-full p-3 w-32 h-32 flex items-center justify-center group-hover:opacity-80 transition-opacity">
               <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
             </div>
             <h2 className="mt-4 text-2xl sm:text-3xl font-bold text-center text-primary-blue group-hover:opacity-80 transition-opacity">Cadastro de Barbearia</h2>

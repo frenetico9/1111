@@ -8,6 +8,7 @@ import LoginPage from './pages/common/LoginPage';
 import ClientSignupPage from './pages/common/ClientSignupPage';
 import BarbershopSignupPage from './pages/common/BarbershopSignupPage';
 import NotFoundPage from './pages/common/NotFoundPage';
+import ForgotPasswordPage from './pages/common/ForgotPasswordPage'; // New Import
 import BarbershopPublicPage from './pages/client/BarbershopPublicPage'; 
 import FeaturesPage from './pages/common/FeaturesPage';
 import PlansPage from './pages/common/PlansPage';
@@ -83,6 +84,7 @@ const App: React.FC = () => {
         <Route element={<Layout><Outlet /></Layout>}>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/signup/client" element={<ClientSignupPage />} />
           <Route path="/signup/barbershop" element={<BarbershopSignupPage />} />
           <Route path="/features" element={<FeaturesPage />} />
@@ -92,20 +94,25 @@ const App: React.FC = () => {
           <Route path="/terms-of-use" element={<TermsOfUsePage />} />
           <Route path="/cookie-policy" element={<CookiePolicyPage />} />
           <Route path="/barbershop/:barbershopId" element={<BarbershopPublicPage />} />
-          <Route path="/barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
+        </Route>
+        
+        {/* Booking page needs the public layout but is behind the /barbershop/:id route */}
+        <Route element={<Layout><Outlet /></Layout>}>
+             <Route path="/barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
         </Route>
 
-        {/* Client Routes */}
+
+        {/* Client Routes - Dashboard has its own layout */}
         <Route element={<ProtectedRoute allowedRoles={['client']} />}>
           <Route path="/client" element={<ClientDashboardLayout />}>
             <Route index element={<Navigate to="appointments" replace />} />
             <Route path="appointments" element={<ClientAppointmentsPage />} />
             <Route path="profile" element={<ClientProfilePage />} />
-            <Route path="find-barbershops" element={<ClientFindBarbershopsPage />} /> {/* New Route */}
+            <Route path="find-barbershops" element={<ClientFindBarbershopsPage />} />
           </Route>
         </Route>
 
-        {/* Admin Routes */}
+        {/* Admin Routes - Dashboard has its own layout */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin" element={<AdminDashboardLayout />}>
             <Route index element={<Navigate to="overview" replace />} />

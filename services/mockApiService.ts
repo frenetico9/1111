@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -11,12 +14,12 @@ import {
     getDay,
     isSameDay,
     isBefore,
-    isEqual
+    isEqual,
+    parse,
+    set,
+    startOfDay,
+    parseISO,
 } from 'date-fns';
-import parse from 'date-fns/parse';
-import set from 'date-fns/set';
-import startOfDay from 'date-fns/startOfDay';
-import parseISO from 'date-fns/parseISO';
 
 // --- DATABASE CONNECTION SETUP ---
 const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-shy-river-acbjgnoi-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -368,6 +371,22 @@ export const mockUpdateClientProfile = async (clientId: string, data: Partial<Us
     return rowCount > 0;
 };
 
+// --- Password Reset ---
+export const mockVerifyForgotPassword = async (name: string, email: string, phone: string): Promise<boolean> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`
+        SELECT id FROM users WHERE name ILIKE ${name} AND email ILIKE ${email} AND phone = ${phone}
+    `;
+    return rows.length > 0;
+};
+
+export const mockResetPassword = async (email: string, newPassword: string): Promise<boolean> => {
+    await ensureDbInitialized();
+    const { rowCount } = await pool.sql`
+        UPDATE users SET password_hash = ${newPassword} WHERE email ILIKE ${email}
+    `;
+    return rowCount > 0;
+};
 
 // --- Barbershop Profile & Subscription ---
 export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResultItem[]> => {

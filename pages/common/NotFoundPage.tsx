@@ -7,8 +7,8 @@ const NotFoundPage: React.FC = () => {
   return (
     <div className="min-h-[calc(100vh-200px)] flex flex-col items-center justify-center bg-gradient-to-br from-white to-light-blue p-6 text-center">
       <div className="relative flex items-center justify-center w-48 h-48 sm:w-64 sm:h-64 mb-8">
-        <span className="absolute text-primary-blue opacity-10 text-[200px] sm:text-[250px] material-icons-outlined select-none">content_cut</span>
-        <span className="absolute text-primary-blue opacity-30 text-[120px] sm:text-[150px] material-icons-outlined transform rotate-12 select-none">content_cut</span>
+        <span className="absolute text-primary-blue opacity-10 text-[150px] sm:text-[250px] material-icons-outlined select-none">content_cut</span>
+        <span className="absolute text-primary-blue opacity-30 text-[90px] sm:text-[150px] material-icons-outlined transform rotate-12 select-none">content_cut</span>
         <h1 className="relative text-7xl sm:text-9xl font-black text-primary-blue-dark select-none" style={{textShadow: '2px 2px 0px white, 4px 4px 0px rgba(0,0,0,0.05)'}}>404</h1>
       </div>
 

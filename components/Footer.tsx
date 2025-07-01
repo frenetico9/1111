@@ -31,13 +31,13 @@ const Footer: React.FC = () => {
     }
 
   return (
-    <footer id="page-footer" className="bg-dark-bg text-white pt-16 pb-8">
+    <footer id="page-footer" className="bg-dark-bg text-white pt-12 sm:pt-16 pb-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
                 {/* About & Newsletter */}
                 <div className="lg:col-span-2">
                     <div className="flex items-center space-x-2 mb-4">
-                        <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
+                        <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" loading="lazy" />
                         <span className="text-2xl font-bold">Navalha<span className="text-primary-blue">Digital</span></span>
                     </div>
                     <p className="text-sm text-gray-400 max-w-sm mb-6">

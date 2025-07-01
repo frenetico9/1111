@@ -15,6 +15,15 @@ const Input: React.FC<InputProps> = ({ label, name, error, type = 'text', contai
 
   const inputId = props.id || name;
 
+  const derivedInputMode = {
+    email: 'email',
+    tel: 'tel',
+    number: 'numeric',
+    search: 'search',
+    url: 'url',
+    decimal: 'decimal',
+  }[type as string] as React.HTMLAttributes<HTMLInputElement>['inputMode'];
+
   return (
     <div className={`mb-4 ${containerClassName}`}>
       {label && <label htmlFor={inputId} className="block text-sm font-medium text-text-dark mb-1">{label}</label>}
@@ -28,6 +37,7 @@ const Input: React.FC<InputProps> = ({ label, name, error, type = 'text', contai
           id={inputId}
           name={name}
           type={type}
+          inputMode={derivedInputMode}
           className={`${baseStyle} ${error ? errorStyle : normalStyle} ${props.disabled ? disabledStyle : ''} ${leftIcon ? 'pl-10' : ''} ${className}`}
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : undefined}

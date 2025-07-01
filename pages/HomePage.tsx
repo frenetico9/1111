@@ -13,21 +13,21 @@ import StarRating from '../components/StarRating';
 const HeroSection = () => (
   <section className="relative bg-dark-bg text-white overflow-hidden">
     <div className="absolute inset-0">
-      <img src="https://i.imgur.com/LSorq3R.png" alt="Barbeiro trabalhando" className="w-full h-full object-cover" />
+      <img src="https://i.imgur.com/LSorq3R.png" alt="Barbeiro trabalhando" className="w-full h-full object-cover" loading="lazy" />
       <div className="absolute inset-0 bg-black/70"></div>
     </div>
-    <div className="relative container mx-auto px-6 py-24 md:py-32 text-center z-10">
+    <div className="relative container mx-auto px-6 py-20 md:py-32 text-center z-10">
       <div className="flex justify-center mb-6 animate-fade-in-up">
-        <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-48 h-48 filter drop-shadow-lg animate-subtle-float" />
+        <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-32 h-32 md:w-48 md:h-48 filter drop-shadow-lg animate-subtle-float" />
       </div>
-      <h1 className="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight animate-fade-in-up [animation-delay:200ms]">
+      <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 tracking-tight animate-fade-in-up [animation-delay:200ms]">
         Navalha <span className="text-primary-blue">Digital</span>
       </h1>
-      <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto animate-fade-in-up [animation-delay:400ms]">
+      <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto animate-fade-in-up [animation-delay:400ms]">
         A plataforma definitiva para agendamento em barbearias. Simples para o cliente, poderosa para o seu negócio.
       </p>
       <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fade-in-up [animation-delay:600ms]">
-        <Link to="/signup/client">
+        <Link to="/client/find-barbershops">
           <Button size="lg" variant="primary" leftIcon={<span className="material-icons-outlined">calendar_today</span>}>
             Quero Agendar
           </Button>
@@ -43,13 +43,13 @@ const HeroSection = () => (
 );
 
 const FeaturesSection = () => (
-  <section id="features" className="py-20 bg-surface">
+  <section id="features" className="py-16 md:py-20 bg-surface">
     <div className="container mx-auto px-6">
-      <div className="text-center mb-16">
+      <div className="text-center mb-12 md:mb-16">
         <h2 className="text-3xl md:text-4xl font-bold text-text-dark">Tudo que você precisa para <span className="text-primary-blue">decolar</span></h2>
         <p className="text-md text-text-light mt-2 max-w-3xl mx-auto">Funcionalidades inteligentes para gestão e crescimento.</p>
       </div>
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="text-center p-6 bg-white rounded-lg shadow-lg transition-transform hover:-translate-y-2">
           <span className="material-icons-outlined text-4xl text-primary-blue mb-4">event_available</span>
           <h3 className="font-bold text-xl mb-2">Agenda Online</h3>
@@ -87,10 +87,12 @@ const BarbershopShowcaseCard: React.FC<{ barbershop: BarbershopSearchResultItem 
     return (
         <div className="relative bg-white rounded-xl shadow-lg overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:scale-105">
             {isPro && <ProBadge />}
-            <div className="h-40 bg-cover bg-center" style={{backgroundImage: `url(${barbershop.coverImageUrl || 'https://source.unsplash.com/400x300/?barbershop'})`}}></div>
+            <div className="h-40 bg-cover bg-center">
+                <img src={barbershop.coverImageUrl || 'https://source.unsplash.com/400x300/?barbershop'} alt={`${barbershop.name} cover`} className="w-full h-full object-cover" loading="lazy" />
+            </div>
             <div className="p-5">
                 <div className="flex items-end -mt-12 mb-3">
-                    <img src={barbershop.logoUrl || NAVALHA_LOGO_URL} alt={`${barbershop.name} logo`} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md bg-white flex-shrink-0"/>
+                    <img src={barbershop.logoUrl || NAVALHA_LOGO_URL} alt={`${barbershop.name} logo`} className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md bg-white flex-shrink-0" loading="lazy"/>
                     <div className="ml-3 flex-1 pb-1">
                         <h3 className="text-lg font-bold text-text-dark truncate">{barbershop.name}</h3>
                          {barbershop.reviewCount > 0 && (
@@ -135,7 +137,7 @@ const BarbershopShowcaseSection: React.FC<{isLoggedIn: boolean}> = ({ isLoggedIn
     if (isLoggedIn) return null;
   
     return (
-        <section id="barbershops" className="py-20 bg-white">
+        <section id="barbershops" className="py-16 md:py-20 bg-white">
             <div className="container mx-auto px-6">
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold text-text-dark">Encontre Barbearias <span className="text-primary-blue">Incríveis</span></h2>
@@ -143,7 +145,7 @@ const BarbershopShowcaseSection: React.FC<{isLoggedIn: boolean}> = ({ isLoggedIn
                 </div>
                 {loading ? <LoadingSpinner label="Carregando barbearias..." /> : (
                     publicBarbershops.length > 0 ? (
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                             {publicBarbershops.map(shop => (
                                 <BarbershopShowcaseCard key={shop.id} barbershop={shop} />
                             ))}
@@ -203,13 +205,13 @@ const SimplePlanCard: React.FC<{plan: SubscriptionPlan}> = ({plan}) => {
 };
 
 const PricingSection = () => (
-    <section id="plans" className="py-20 bg-surface">
+    <section id="plans" className="py-16 md:py-20 bg-surface">
         <div className="container mx-auto px-6">
             <div className="text-center mb-12">
                 <h2 className="text-3xl md:text-4xl font-bold text-text-dark">Comece a usar agora mesmo</h2>
                 <p className="text-md text-text-light mt-2 max-w-2xl mx-auto">Um plano para cada etapa do seu negócio. Comece grátis, sem compromisso.</p>
             </div>
-            <div className="grid lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
                 {SUBSCRIPTION_PLANS.map(plan => <SimplePlanCard key={plan.id} plan={plan} />)}
             </div>
              <div className="text-center mt-12">
@@ -226,17 +228,17 @@ const PricingSection = () => (
 
 
 const HowItWorksSection = () => (
-    <section id="how-it-works" className="py-20 bg-white">
+    <section id="how-it-works" className="py-16 md:py-20 bg-white">
         <div className="container mx-auto px-6">
              <div className="text-center mb-12">
                 <h2 className="text-3xl md:text-4xl font-bold text-text-dark">Como Funciona em <span className="text-primary-blue">4 Passos</span></h2>
                 <p className="text-md text-text-light mt-2">Agendar seu próximo corte nunca foi tão fácil.</p>
             </div>
-            <div className="grid md:grid-cols-2 items-center gap-12">
-                <div className="relative">
-                    <img src="https://iili.io/FRKGVvs.png" alt="Celular mostrando o app Navalha Digital" className="max-w-xs mx-auto animate-subtle-float" />
+            <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-12">
+                <div className="relative order-2 md:order-1">
+                    <img src="https://iili.io/FRKGVvs.png" alt="Celular mostrando o app Navalha Digital" className="max-w-xs mx-auto md:animate-subtle-float" loading="lazy" />
                 </div>
-                <div className="space-y-8">
+                <div className="space-y-8 order-1 md:order-2">
                     <div className="flex items-start">
                         <div className="flex-shrink-0 w-12 h-12 rounded-full bg-light-blue text-primary-blue flex items-center justify-center font-bold text-xl ring-8 ring-white">1</div>
                         <div className="ml-4">
@@ -273,7 +275,7 @@ const HowItWorksSection = () => (
 
 
 const CTASection = () => (
-    <section className="py-20 bg-primary-blue text-white">
+    <section className="py-16 md:py-20 bg-primary-blue text-white">
         <div className="container mx-auto px-6 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Pronto para modernizar seu negócio?</h2>
             <p className="text-lg text-blue-200 mb-8 max-w-2xl mx-auto">

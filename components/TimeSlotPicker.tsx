@@ -5,16 +5,16 @@ interface TimeSlotPickerProps {
   availableSlots: string[]; // e.g., ["09:00", "09:30"]
   selectedSlot: string | null;
   onSelectSlot: (slot: string) => void;
-  slotsPerRow?: 2 | 3 | 4; // Control how many slots per row for responsiveness
   loading?: boolean;
+  slotsPerRow?: 2 | 3 | 4;
 }
 
 const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   availableSlots,
   selectedSlot,
   onSelectSlot,
-  slotsPerRow = 3,
-  loading = false
+  loading = false,
+  slotsPerRow,
 }) => {
   if (loading) {
      return <p className="text-center text-gray-500 my-4 p-4 bg-gray-50 rounded-lg">Carregando horários...</p>;
@@ -24,15 +24,15 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
     return <p className="text-center text-gray-500 my-4 p-4 bg-gray-50 rounded-lg">Nenhum horário disponível para esta data/seleção.</p>;
   }
   
-  const gridColsClass = {
-    2: 'grid-cols-2',
-    3: 'grid-cols-3',
-    4: 'grid-cols-4',
-  }[slotsPerRow];
-
+  const gridClasses = {
+      2: 'grid-cols-2',
+      3: 'grid-cols-3',
+      4: 'grid-cols-4',
+  };
+  const gridClass = slotsPerRow ? gridClasses[slotsPerRow] : 'grid-cols-3 sm:grid-cols-4';
 
   return (
-    <div className={`grid ${gridColsClass} gap-2 p-3 bg-gray-50 rounded-lg shadow-sm max-h-60 overflow-y-auto`}>
+    <div className={`grid ${gridClass} gap-2 p-3 bg-gray-50 rounded-lg shadow-sm max-h-60 overflow-y-auto`}>
       {availableSlots.map(slot => (
         <Button
           key={slot}

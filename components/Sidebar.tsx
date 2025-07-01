@@ -7,12 +7,14 @@ interface SidebarLinkProps {
   to: string;
   iconName: string; // Material Icons name
   children: React.ReactNode;
+  onClick?: () => void;
 }
 
-const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children }) => {
+const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, onClick }) => {
   return (
     <NavLink
       to={to}
+      onClick={onClick}
       className={({ isActive }) =>
         `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-150 ease-in-out text-sm font-medium group
          ${isActive 
@@ -29,12 +31,16 @@ const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children }) 
   );
 };
 
-const AdminSidebar: React.FC = () => {
+interface AdminSidebarProps {
+  onLinkClick: () => void;
+}
+
+const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
   const { barbershopProfile } = useAuth();
 
   return (
     <aside className="w-64 bg-white shadow-lg p-4 space-y-2 flex flex-col h-screen sticky top-0">
-      <Link to="/admin/overview" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue group">
+      <Link to="/admin/overview" onClick={onLinkClick} className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue group">
         <div className="bg-primary-blue rounded-full p-2 w-16 h-16 flex items-center justify-center group-hover:opacity-80 transition-opacity flex-shrink-0">
             <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
         </div>
@@ -44,17 +50,17 @@ const AdminSidebar: React.FC = () => {
         </div>
       </Link>
       <nav className="space-y-1.5 flex-grow overflow-y-auto">
-        <SidebarNavLink to="/admin/overview" iconName="bar_chart">Visão Geral</SidebarNavLink>
-        <SidebarNavLink to="/admin/appointments" iconName="event_available">Agendamentos</SidebarNavLink>
-        <SidebarNavLink to="/admin/services" iconName="cut">Serviços</SidebarNavLink>
-        <SidebarNavLink to="/admin/team" iconName="groups">Equipe</SidebarNavLink>
-        <SidebarNavLink to="/admin/clients" iconName="people_alt">Clientes</SidebarNavLink>
-        <SidebarNavLink to="/admin/reviews" iconName="reviews">Avaliações</SidebarNavLink>
-        <SidebarNavLink to="/admin/subscription" iconName="credit_card">Assinatura</SidebarNavLink>
-        <SidebarNavLink to="/admin/settings" iconName="settings">Configurações</SidebarNavLink>
+        <SidebarNavLink to="/admin/overview" iconName="bar_chart" onClick={onLinkClick}>Visão Geral</SidebarNavLink>
+        <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}>Agendamentos</SidebarNavLink>
+        <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}>Serviços</SidebarNavLink>
+        <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}>Equipe</SidebarNavLink>
+        <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}>Clientes</SidebarNavLink>
+        <SidebarNavLink to="/admin/reviews" iconName="reviews" onClick={onLinkClick}>Avaliações</SidebarNavLink>
+        <SidebarNavLink to="/admin/subscription" iconName="credit_card" onClick={onLinkClick}>Assinatura</SidebarNavLink>
+        <SidebarNavLink to="/admin/settings" iconName="settings" onClick={onLinkClick}>Configurações</SidebarNavLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
-        <SidebarNavLink to="/" iconName="storefront">Ver Página Pública</SidebarNavLink>
+        <SidebarNavLink to="/" iconName="storefront" onClick={onLinkClick}>Ver Página Pública</SidebarNavLink>
       </div>
     </aside>
   );
