@@ -36,7 +36,11 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
-  const { barbershopProfile } = useAuth();
+  const { user, barbershopProfile } = useAuth();
+
+  // Construct the correct URL for the public page. The user's ID is the barbershop's ID for an admin.
+  // Provides a fallback to the homepage if the user is not available for any reason.
+  const publicPageUrl = user ? `/barbershop/${user.id}` : '/';
 
   return (
     <aside className="w-64 bg-white shadow-lg p-4 space-y-2 flex flex-col h-screen sticky top-0">
@@ -60,7 +64,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
         <SidebarNavLink to="/admin/settings" iconName="settings" onClick={onLinkClick}>Configurações</SidebarNavLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
-        <SidebarNavLink to="/" iconName="storefront" onClick={onLinkClick}>Ver Página Pública</SidebarNavLink>
+        <SidebarNavLink to={publicPageUrl} iconName="storefront" onClick={onLinkClick}>Ver Página Pública</SidebarNavLink>
       </div>
     </aside>
   );
