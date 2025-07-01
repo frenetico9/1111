@@ -2,6 +2,7 @@ import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth'; // To display barbershop name
+import { SubscriptionPlanTier } from '../types';
 
 interface SidebarLinkProps {
   to: string;
@@ -36,7 +37,8 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
-  const { user, barbershopProfile } = useAuth();
+  const { user, barbershopProfile, barbershopSubscription } = useAuth();
+  const isPro = barbershopSubscription?.planId === SubscriptionPlanTier.PRO;
 
   // Construct the correct URL for the public page. The user's ID is the barbershop's ID for an admin.
   // Provides a fallback to the homepage if the user is not available for any reason.
@@ -55,6 +57,25 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
       </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow overflow-y-auto">
         <SidebarNavLink to="/admin/overview" iconName="bar_chart" onClick={onLinkClick}>Visão Geral</SidebarNavLink>
+        
+        {isPro ? (
+            <SidebarNavLink to="/admin/reports" iconName="analytics" onClick={onLinkClick}>Relatórios</SidebarNavLink>
+        ) : (
+            <ReactRouterDOM.Link 
+                to="/admin/subscription" 
+                className="block" 
+                title="Faça upgrade para o PRO para acessar os Relatórios"
+                onClick={onLinkClick}
+            >
+                <div className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-light-blue/50 transition-colors duration-150 ease-in-out group">
+                    <span className="material-icons-outlined text-xl">analytics</span>
+                    <span className="group-hover:text-primary-blue">Relatórios</span>
+                    <span className="ml-auto text-xs font-bold bg-accent-gold text-white px-1.5 py-0.5 rounded-full">PRO</span>
+                    <span className="material-icons-outlined text-base text-gray-400 ml-1">lock</span>
+                </div>
+            </ReactRouterDOM.Link>
+        )}
+
         <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}>Agendamentos</SidebarNavLink>
         <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}>Serviços</SidebarNavLink>
         <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}>Equipe</SidebarNavLink>

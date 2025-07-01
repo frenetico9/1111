@@ -1,17 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import format from 'date-fns/format';
-import addMonths from 'date-fns/addMonths';
-import endOfMonth from 'date-fns/endOfMonth';
-import eachDayOfInterval from 'date-fns/eachDayOfInterval';
-import getDay from 'date-fns/getDay';
-import isSameDay from 'date-fns/isSameDay';
-import isBefore from 'date-fns/isBefore';
-import endOfDay from 'date-fns/endOfDay';
-import isAfter from 'date-fns/isAfter';
-import subMonths from 'date-fns/subMonths';
-import startOfMonth from 'date-fns/startOfMonth';
-import startOfDay from 'date-fns/startOfDay';
-import ptBR from 'date-fns/locale/pt-BR';
+import {
+  format,
+  addMonths,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  isSameDay,
+  isBefore,
+  endOfDay,
+  isAfter,
+  subMonths,
+  startOfMonth,
+  startOfDay,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import Button from './Button';
 
 interface DatePickerProps {

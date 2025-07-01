@@ -4,13 +4,15 @@ import { Appointment, Service, Review, User, UserType } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { mockGetAdminAppointments, mockGetServicesForBarbershop, mockGetReviewsForBarbershop, mockGetClientsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import format from 'date-fns/format';
-import endOfWeek from 'date-fns/endOfWeek';
-import isWithinInterval from 'date-fns/isWithinInterval';
-import parseISO from 'date-fns/parseISO';
-import subDays from 'date-fns/subDays';
-import startOfWeek from 'date-fns/startOfWeek';
-import ptBR from 'date-fns/locale/pt-BR';
+import {
+  format,
+  endOfWeek,
+  isWithinInterval,
+  parseISO,
+  subDays,
+  startOfWeek,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 import { PRIMARY_BLUE } from '../../constants';

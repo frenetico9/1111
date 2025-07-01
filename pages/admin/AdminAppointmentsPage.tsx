@@ -17,7 +17,7 @@ import Modal from '../../components/Modal';
 import Button from '../../components/Button';
 import { useNotification } from '../../contexts/NotificationContext';
 import Input from '../../components/Input';
-import format from 'date-fns/format';
+import { format } from 'date-fns';
 
 interface ClientOption extends Pick<User, 'id' | 'name'> {}
 interface ServiceOption extends Pick<ServiceType, 'id' | 'name' | 'duration'> {}

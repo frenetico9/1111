@@ -6,9 +6,8 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Modal from '../../components/Modal';
-import format from 'date-fns/format';
-import parseISO from 'date-fns/parseISO';
-import ptBR from 'date-fns/locale/pt-BR';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ClientWithDetails extends User {
   totalAppointments: number;

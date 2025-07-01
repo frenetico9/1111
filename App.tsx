@@ -35,6 +35,7 @@ import AdminClientsPage from './pages/admin/AdminClientsPage';
 import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminSubscriptionPage from './pages/admin/AdminSubscriptionPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminReportsPage from './pages/admin/AdminReportsPage'; // New Import
 
 // Components
 import LgpdConsentModal from './components/LgpdConsentModal';
@@ -119,6 +120,7 @@ const App: React.FC = () => {
           <ReactRouterDOM.Route path="/admin" element={<AdminDashboardLayout />}>
             <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="overview" replace />} />
             <ReactRouterDOM.Route path="overview" element={<AdminOverviewPage />} />
+            <ReactRouterDOM.Route path="reports" element={<AdminReportsPage />} />
             <ReactRouterDOM.Route path="appointments" element={<AdminAppointmentsPage />} />
             <ReactRouterDOM.Route path="services" element={<AdminServicesPage />} />
             <ReactRouterDOM.Route path="team" element={<AdminTeamPage />} />

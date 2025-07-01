@@ -1,18 +1,18 @@
-
-
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
-import addMinutes from 'date-fns/addMinutes';
-import format from 'date-fns/format';
-import getDay from 'date-fns/getDay';
-import isSameDay from 'date-fns/isSameDay';
-import isBefore from 'date-fns/isBefore';
-import isEqual from 'date-fns/isEqual';
-import parse from 'date-fns/parse';
-import set from 'date-fns/set';
-import startOfDay from 'date-fns/startOfDay';
-import parseISO from 'date-fns/parseISO';
+import {
+  addMinutes,
+  format,
+  getDay,
+  isSameDay,
+  isBefore,
+  isEqual,
+  parse,
+  set,
+  startOfDay,
+  parseISO,
+} from 'date-fns';
 
 
 // --- DATABASE CONNECTION SETUP ---
