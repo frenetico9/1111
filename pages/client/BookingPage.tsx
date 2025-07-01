@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { BarbershopProfile, Service, Barber, Appointment } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { 
@@ -19,10 +19,10 @@ import ptBR from 'date-fns/locale/pt-BR';
 import BackButton from '../../components/BackButton';
 
 const BookingPage: React.FC = () => {
-  const { barbershopId, serviceId } = useParams<{ barbershopId: string, serviceId: string }>();
+  const { barbershopId, serviceId } = ReactRouterDOM.useParams<{ barbershopId: string, serviceId: string }>();
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation(); // To redirect back after login
+  const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation(); // To redirect back after login
   const { addNotification } = useNotification();
 
   const [barbershop, setBarbershop] = useState<BarbershopProfile | null>(null);
@@ -145,7 +145,7 @@ const BookingPage: React.FC = () => {
   };
 
   if (loadingData || authLoading) return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner size="lg" label="Carregando dados do agendamento..." /></div>;
-  if (!barbershop || !service) return <div className="text-center text-red-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Não foi possível carregar os dados do agendamento. <Link to="/"><Button>Voltar</Button></Link></div>;
+  if (!barbershop || !service) return <div className="text-center text-red-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Não foi possível carregar os dados do agendamento. <ReactRouterDOM.Link to="/"><Button>Voltar</Button></ReactRouterDOM.Link></div>;
 
   return (
     <div className="container mx-auto p-4 md:p-6">

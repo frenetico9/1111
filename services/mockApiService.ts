@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -296,7 +291,22 @@ const mapToSubscription = (row: any): BarbershopSubscription => ({
 // --- Auth ---
 export const mockLogin = async (email: string, pass: string): Promise<User | null> => {
   await ensureDbInitialized();
-  const { rows } = await pool.sql`SELECT * FROM users WHERE email = ${email} AND password_hash = ${pass}`;
+
+  const testAccounts = ['cliente@exemplo.com', 'admin@barbearia.com', 'vip@navalha.com'];
+  const isTestAccount = testAccounts.includes(email.toLowerCase());
+
+  // Special handling for test accounts to make them resilient.
+  // If the user tries to log in with the default password, it works even if
+  // the password was changed in the DB via the "Forgot Password" feature.
+  if (isTestAccount && pass === 'password123') {
+    const { rows } = await pool.sql`SELECT * FROM users WHERE email ILIKE ${email}`;
+    if (rows.length > 0) {
+      return mapToUser(rows[0]);
+    }
+  }
+
+  // Original logic for all other accounts or if a different password is used for a test account.
+  const { rows } = await pool.sql`SELECT * FROM users WHERE email ILIKE ${email} AND password_hash = ${pass}`;
   if (rows.length === 0) return null;
   return mapToUser(rows[0]);
 };
@@ -382,6 +392,12 @@ export const mockVerifyForgotPassword = async (name: string, email: string, phon
 
 export const mockResetPassword = async (email: string, newPassword: string): Promise<boolean> => {
     await ensureDbInitialized();
+
+    const testAccounts = ['cliente@exemplo.com', 'admin@barbearia.com', 'vip@navalha.com'];
+    if (testAccounts.includes(email.toLowerCase())) {
+        throw new Error('A senha de contas de teste não pode ser alterada. Use a senha padrão "password123".');
+    }
+
     const { rowCount } = await pool.sql`
         UPDATE users SET password_hash = ${newPassword} WHERE email ILIKE ${email}
     `;

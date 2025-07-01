@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 import { DETAILED_FEATURES_COMPARISON } from '../../constants';
 
@@ -71,10 +71,10 @@ const PlansPage: React.FC = () => {
                                             <p className="text-xs text-text-light">Escolha um plano e comece hoje.</p>
                                         </td>
                                         <td className="p-4 md:p-6 border-l border-border-color">
-                                            <Link to="/signup/barbershop"><Button variant="outline" fullWidth>Começar Grátis</Button></Link>
+                                            <ReactRouterDOM.Link to="/signup/barbershop"><Button variant="outline" fullWidth>Começar Grátis</Button></ReactRouterDOM.Link>
                                         </td>
                                         <td className="p-4 md:p-6 border-l border-border-color">
-                                            <Link to="/signup/barbershop"><Button variant="primary" fullWidth>Assinar PRO</Button></Link>
+                                            <ReactRouterDOM.Link to="/signup/barbershop"><Button variant="primary" fullWidth>Assinar PRO</Button></ReactRouterDOM.Link>
                                         </td>
                                     </tr>
                                 </tfoot>

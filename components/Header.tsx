@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 
 const NavLinkItem: React.FC<{ to: string; children: React.ReactNode; onClick?: () => void }> = ({ to, children, onClick }) => (
-  <Link 
+  <ReactRouterDOM.Link 
     to={to} 
     onClick={onClick}
     className="block md:inline-block py-3 md:py-0 px-4 md:px-0 text-lg md:text-sm font-medium text-text-dark hover:text-primary-blue transition-colors duration-200"
   >
     {children}
-  </Link>
+  </ReactRouterDOM.Link>
 );
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -48,10 +48,10 @@ const Header: React.FC = () => {
     <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
-          <Link to="/" className="flex items-center space-x-2 group">
+          <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 group">
             <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
             <span className="text-xl sm:text-2xl font-bold text-text-dark group-hover:text-primary-blue transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
-          </Link>
+          </ReactRouterDOM.Link>
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
