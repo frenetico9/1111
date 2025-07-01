@@ -11,7 +11,7 @@ O projeto foi construído para demonstrar a criação de uma aplicação web mod
 ### Para Donos de Barbearia (Painel Admin)
 - **Visão Geral (Dashboard):** Acompanhe métricas vitais como faturamento, número de agendamentos e avaliação média em um painel visualmente rico com gráficos.
 - **Gestão de Agendamentos:** Crie, visualize, edite, cancele e marque agendamentos como concluídos. Filtre por data e status para ter controle total.
-- **Gestão de Serviços:** Cadastre, edite, ative ou desative os serviços oferecidos. Use o **Assistente de IA com Google Gemini API** para gerar sugestões criativas de novos serviços.
+- **Gestão de Serviços:** Cadastre, edite, ative ou desative os serviços oferecidos.
 - **Gestão de Equipe:** Adicione barbeiros à sua equipe, defina seus horários de trabalho específicos e atribua os serviços que cada um realiza.
 - **Gestão de Clientes (CRM):** Acesse um histórico completo dos seus clientes, incluindo agendamentos passados e informações de contato.
 - **Gestão de Avaliações:** Visualize e responda às avaliações deixadas pelos clientes, construindo uma reputação online positiva.
@@ -29,27 +29,3 @@ O projeto foi construído para demonstrar a criação de uma aplicação web mod
 ## Tecnologias Utilizadas
 - **Frontend:** React, TypeScript, Tailwind CSS, React Router.
 - **Backend (Simulado):** A persistência de dados é simulada utilizando Vercel Postgres (Neon DB), permitindo que os dados sejam mantidos entre as sessões. Todas as operações (CRUD) são feitas através de um `mockApiService` que interage com o banco de dados.
-- **Inteligência Artificial:** Integração com a **Google Gemini API** para a funcionalidade de sugestão de serviços.
-
----
-
-## Como Executar Localmente
-
-**Pré-requisitos:** Node.js
-
-1.  **Instale as dependências:**
-    ```bash
-    npm install
-    ```
-
-2.  **Configure a Chave da API do Gemini:**
-    - Crie um arquivo chamado `.env.local` na raiz do projeto.
-    - Dentro deste arquivo, adicione sua chave da API do Gemini:
-      ```
-      GEMINI_API_KEY=SUA_CHAVE_DE_API_AQUI
-      ```
-
-3.  **Execute a aplicação:**
-    ```bash
-    npm run dev
-    ```
