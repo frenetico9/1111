@@ -1,7 +1,7 @@
 import React from 'react';
 import { Appointment, UserType } from '../types';
 import Button from './Button';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 import parseISO from 'date-fns/parseISO';
 import ptBR from 'date-fns/locale/pt-BR';
 

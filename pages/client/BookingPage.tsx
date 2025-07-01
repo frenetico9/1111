@@ -14,7 +14,7 @@ import DatePicker from '../../components/DatePicker';
 import TimeSlotPicker from '../../components/TimeSlotPicker';
 import Button from '../../components/Button';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 import ptBR from 'date-fns/locale/pt-BR';
 import BackButton from '../../components/BackButton';
 
@@ -150,9 +150,7 @@ const BookingPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4 md:p-6">
       <div className="bg-white p-5 sm:p-6 md:p-8 rounded-xl shadow-2xl border border-primary-blue/20">
-        <div className="mb-4">
-          <BackButton />
-        </div>
+        
         <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue mb-2">Agendar Serviço</h1>
         <div className="bg-light-blue p-4 rounded-lg mb-6 shadow-sm">
             <p className="text-xl font-semibold text-primary-blue">{service.name}</p>

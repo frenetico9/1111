@@ -98,9 +98,7 @@ const BarbershopPublicPage: React.FC = () => {
 
 
       <div className="container mx-auto px-4">
-        <div className="mb-6">
-          <BackButton />
-        </div>
+        
         <div className="grid md:grid-cols-12 gap-8">
             {/* Services Section - Main Column */}
             <section className="md:col-span-8 space-y-8">

@@ -1,9 +1,11 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
+import BackButton from './BackButton';
 
 const NavLinkItem = React.memo<{ to: string; children: React.ReactNode; onClick?: () => void }>(({ to, children, onClick }) => (
   <ReactRouterDOM.NavLink
@@ -49,6 +51,8 @@ const Header: React.FC = () => {
     };
   }, [isMenuOpen]);
   
+  const showBackButton = location.pathname.startsWith('/barbershop/') || location.pathname.startsWith('/booking');
+
   const MainHeaderBar = (
     <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,6 +70,7 @@ const Header: React.FC = () => {
             </nav>
             
             <div className="hidden md:flex items-center space-x-2">
+              {showBackButton && <BackButton />}
               {user ? (
                 <>
                   {user.type === 'client' && <Button onClick={() => navigate('/client/appointments')} size="sm" variant="outline">Meus Agendamentos</Button>}
@@ -95,9 +100,18 @@ const Header: React.FC = () => {
   
   const MobileMenuElements = (
       <div className="md:hidden">
+        {showBackButton && (
+          <button
+            onClick={() => navigate(-1)}
+            className="fixed top-5 left-4 z-[1001] p-2 rounded-md text-text-dark bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            aria-label="Voltar"
+          >
+            <span className="material-icons-outlined text-3xl">arrow_back_ios_new</span>
+          </button>
+        )}
         <button 
           onClick={() => setIsMenuOpen(!isMenuOpen)} 
-          className="fixed top-5 right-4 z-[1001] p-2 rounded-md text-text-dark focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          className="fixed top-5 right-4 z-[1001] p-2 rounded-md text-text-dark bg-white/70 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
           aria-label={isMenuOpen ? "Fechar menu" : "Abrir menu"}
           aria-controls="mobile-menu-panel"
           aria-expanded={isMenuOpen}
