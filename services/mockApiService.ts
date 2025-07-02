@@ -1080,6 +1080,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
         id: row.id,
         clientId: row.clientId,
         clientName: row.clientName,
+        clientPhone: row.clientPhone,
         barbershopId: row.barbershopId,
         barbershopName: row.barbershopName,
         barbershopLogoUrl: row.barbershopLogoUrl,
@@ -1095,7 +1096,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
     const { rows } = await pool.sql`
         SELECT 
             c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread",
-            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl",
+            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
             u.name as "clientName", u.phone as "clientPhone"
         FROM chats c
         LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
@@ -1111,6 +1112,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
         barbershopId: row.barbershopId,
         barbershopName: row.barbershopName,
         barbershopLogoUrl: row.barbershopLogoUrl,
+        barbershopPhone: row.barbershopPhone,
         lastMessage: row.lastMessage,
         hasUnread: row.hasUnread,
         lastMessageAt: toOptionalIsoString(row.lastMessageAt)
