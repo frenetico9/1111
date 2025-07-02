@@ -28,144 +28,133 @@ let isDbInitialized = false;
 
 // This function sets up the database schema and seeds it with initial data.
 async function initializeDatabase() {
-    if (isDbInitialized) return;
-    console.log('Checking database status...');
-  
-    try {
-      await pool.sql`SELECT 1 FROM users LIMIT 1`;
-      console.log('Database already initialized.');
-      isDbInitialized = true;
-      return;
-    } catch (error: any) {
-      if (error.message.includes('relation "users" does not exist')) {
-        console.log('Database not initialized. Starting setup...');
-      } else {
-        console.error('Database check failed:', error);
-        throw error;
-      }
-    }
-  
-    console.log('Initializing database schema and seeding data...');
-  
-    try {
-      console.log('Creating tables...');
-      await pool.sql`
-        CREATE TABLE users (
-          id TEXT PRIMARY KEY,
-          email TEXT UNIQUE NOT NULL,
-          type TEXT NOT NULL,
-          name TEXT,
-          phone TEXT,
-          "barbershopName" TEXT,
-          address TEXT,
-          password_hash TEXT NOT NULL
-        );
-      `;
-  
-      await pool.sql`
-        CREATE TABLE barbershop_profiles (
-          id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          "responsibleName" TEXT NOT NULL,
-          email TEXT NOT NULL,
-          phone TEXT NOT NULL,
-          address TEXT NOT NULL,
-          description TEXT,
-          "logoUrl" TEXT,
-          "coverImageUrl" TEXT,
-          "workingHours" JSONB NOT NULL
-        );
-      `;
-  
-      await pool.sql`
-        CREATE TABLE services (
-          id TEXT PRIMARY KEY,
-          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          price NUMERIC(10, 2) NOT NULL,
-          duration INTEGER NOT NULL,
-          "isActive" BOOLEAN NOT NULL,
-          description TEXT
-        );
-      `;
+  if (isDbInitialized) return;
+  console.log('Ensuring database schema is up-to-date...');
+
+  try {
+    // Make schema creation idempotent using "IF NOT EXISTS"
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        type TEXT NOT NULL,
+        name TEXT,
+        phone TEXT,
+        "barbershopName" TEXT,
+        address TEXT,
+        password_hash TEXT NOT NULL
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS barbershop_profiles (
+        id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        "responsibleName" TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        address TEXT NOT NULL,
+        description TEXT,
+        "logoUrl" TEXT,
+        "coverImageUrl" TEXT,
+        "workingHours" JSONB NOT NULL
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS services (
+        id TEXT PRIMARY KEY,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        price NUMERIC(10, 2) NOT NULL,
+        duration INTEGER NOT NULL,
+        "isActive" BOOLEAN NOT NULL,
+        description TEXT
+      );
+    `;
+    
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS barbers (
+        id TEXT PRIMARY KEY,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        "availableHours" JSONB,
+        "assignedServices" TEXT[]
+      );
+    `;
+    
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id TEXT PRIMARY KEY,
+        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "serviceId" TEXT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+        "barberId" TEXT REFERENCES barbers(id) ON DELETE SET NULL,
+        date DATE NOT NULL,
+        time TEXT NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id TEXT PRIMARY KEY,
+        "appointmentId" TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+        reply TEXT,
+        "replyAt" TIMESTAMP WITH TIME ZONE
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS barbershop_subscriptions (
+        "barbershopId" TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        "planId" TEXT NOT NULL,
+        status TEXT NOT NULL,
+        "startDate" TIMESTAMP WITH TIME ZONE NOT NULL,
+        "endDate" TIMESTAMP WITH TIME ZONE,
+        "nextBillingDate" TIMESTAMP WITH TIME ZONE
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chats (
+        id TEXT PRIMARY KEY,
+        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "lastMessage" TEXT,
+        "lastMessageAt" TIMESTAMP WITH TIME ZONE,
+        "clientHasUnread" BOOLEAN DEFAULT FALSE,
+        "adminHasUnread" BOOLEAN DEFAULT FALSE,
+        UNIQUE("clientId", "barbershopId")
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        "chatId" TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "senderType" TEXT NOT NULL,
+        content TEXT NOT NULL,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `;
+
+    console.log('Schema verification complete.');
+
+    // Check if data needs to be seeded by looking for a specific seed entry.
+    const { rows: seedCheck } = await pool.sql`SELECT id FROM users WHERE id = 'client1'`;
+
+    if (seedCheck.length === 0) {
+      console.log('Database is empty. Seeding initial data...');
       
-      await pool.sql`
-        CREATE TABLE barbers (
-          id TEXT PRIMARY KEY,
-          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
-          "availableHours" JSONB,
-          "assignedServices" TEXT[]
-        );
-      `;
-      
-      await pool.sql`
-        CREATE TABLE appointments (
-          id TEXT PRIMARY KEY,
-          "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "serviceId" TEXT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-          "barberId" TEXT REFERENCES barbers(id) ON DELETE SET NULL,
-          date DATE NOT NULL,
-          time TEXT NOT NULL,
-          status TEXT NOT NULL,
-          notes TEXT,
-          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
-        );
-      `;
-  
-      await pool.sql`
-        CREATE TABLE reviews (
-          id TEXT PRIMARY KEY,
-          "appointmentId" TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
-          "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          rating INTEGER NOT NULL,
-          comment TEXT,
-          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
-          reply TEXT,
-          "replyAt" TIMESTAMP WITH TIME ZONE
-        );
-      `;
-  
-      await pool.sql`
-        CREATE TABLE barbershop_subscriptions (
-          "barbershopId" TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-          "planId" TEXT NOT NULL,
-          status TEXT NOT NULL,
-          "startDate" TIMESTAMP WITH TIME ZONE NOT NULL,
-          "endDate" TIMESTAMP WITH TIME ZONE,
-          "nextBillingDate" TIMESTAMP WITH TIME ZONE
-        );
-      `;
-
-      await pool.sql`
-        CREATE TABLE chats (
-          id TEXT PRIMARY KEY,
-          "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "lastMessage" TEXT,
-          "lastMessageAt" TIMESTAMP WITH TIME ZONE,
-          "clientHasUnread" BOOLEAN DEFAULT FALSE,
-          "adminHasUnread" BOOLEAN DEFAULT FALSE,
-          UNIQUE("clientId", "barbershopId")
-        );
-      `;
-
-      await pool.sql`
-        CREATE TABLE chat_messages (
-          id TEXT PRIMARY KEY,
-          "chatId" TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-          "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          "senderType" TEXT NOT NULL,
-          content TEXT NOT NULL,
-          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
-        );
-      `;
-
-      console.log('Tables created.');
-  
-      console.log('Seeding data...');
       await pool.sql`
         INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash) VALUES
         ('client1', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
@@ -223,15 +212,17 @@ async function initializeDatabase() {
         ('msg1', 'chat1', 'admin1', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
         ('msg2', 'chat1', 'client1', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
       `;
-
-  
-      console.log('Database initialization complete.');
-      isDbInitialized = true;
-    } catch (e) {
-      console.error('Database initialization failed.', e);
-      throw e;
+      console.log('Data seeding complete.');
+    } else {
+      console.log('Database already seeded. Skipping seeding.');
     }
+
+    isDbInitialized = true;
+  } catch (e) {
+    console.error('Database initialization failed.', e);
+    throw e;
   }
+}
 
 async function ensureDbInitialized() {
   if (!isDbInitialized) {
