@@ -138,7 +138,7 @@ const ClientChatPage: React.FC = () => {
   }, [fetchConversations]);
 
   const handleSelectConversation = useCallback(async (conversation: ChatConversation) => {
-    if (!user || activeConversation?.id === conversation.id) return;
+    if (!user) return;
 
     navigate(`/client/chat/${conversation.barbershopId}`, { replace: true });
     setActiveConversation(conversation);
@@ -153,7 +153,7 @@ const ClientChatPage: React.FC = () => {
     } finally {
         setLoadingMessages(false);
     }
-  }, [user, navigate, addNotification, activeConversation, fetchConversations]);
+  }, [user, navigate, addNotification, fetchConversations]);
 
   const initiateNewConversation = useCallback(async (barbershopId: string) => {
     if (!user) return;
