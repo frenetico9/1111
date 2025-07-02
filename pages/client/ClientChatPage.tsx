@@ -29,16 +29,16 @@ const ConversationListItem: React.FC<{
     if (!date) return '';
     try {
       const parsedDate = parseISO(date);
-      // Check if the parsed date is valid before formatting
       if (isNaN(parsedDate.getTime())) {
         console.warn('Invalid date value received for formatting:', date);
         return '';
       }
+      // Fix for potential TypeScript typing issue with date-fns locale
       const formatOptions = { addSuffix: true, locale: ptBR };
       return formatDistance(parsedDate, new Date(), formatOptions);
     } catch (error) {
       console.error('Error formatting date in ConversationListItem:', error);
-      return ''; // Return empty string on error to prevent crashing
+      return '';
     }
   };
 
@@ -72,13 +72,19 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
   const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
   const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
   const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
+  
+  const formattedTime = new Date(message.createdAt).toLocaleTimeString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <div className={`flex ${alignment} mb-3`}>
       <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-sm ${bubbleColor} ${borderRadius}`}>
         <p className="text-sm break-words">{message.content}</p>
         <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
-          {format(parseISO(message.createdAt), 'HH:mm')}
+          {formattedTime}
         </p>
       </div>
     </div>
@@ -239,12 +245,14 @@ const ClientChatPage: React.FC = () => {
                     <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
                         <h3 className="font-semibold text-text-dark">{activeConversation.barbershopName}</h3>
                         {activeConversation.barbershopPhone && (
-                            <div className="group relative">
-                                <span className="material-icons-outlined text-primary-blue cursor-pointer">contact_phone</span>
-                                <div className="absolute bottom-full right-0 mb-2 w-max p-2 bg-dark-bg text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    Tel: {activeConversation.barbershopPhone}
-                                </div>
-                            </div>
+                           <a 
+                                href={`tel:${activeConversation.barbershopPhone.replace(/\D/g, '')}`} 
+                                className="text-primary-blue hover:text-primary-blue-dark transition-colors p-2 rounded-full hover:bg-light-blue"
+                                aria-label={`Ligar para ${activeConversation.barbershopName}`}
+                                title={`Ligar para ${activeConversation.barbershopPhone}`}
+                            >
+                                <span className="material-icons-outlined">call</span>
+                            </a>
                         )}
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
