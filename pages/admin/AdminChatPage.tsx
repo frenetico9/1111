@@ -12,7 +12,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import formatDistanceToNow from 'date-fns/formatDistanceToNow';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -26,7 +26,18 @@ const ConversationListItem: React.FC<{
   const bgColor = isSelected ? 'bg-light-blue' : 'bg-white hover:bg-gray-50';
   const formatLastMessageTime = (date?: string) => {
     if (!date) return '';
-    return formatDistanceToNow(parseISO(date), { addSuffix: true, locale: ptBR });
+    try {
+      const parsedDate = parseISO(date);
+      // Check if the parsed date is valid before formatting
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date value received for formatting:', date);
+        return '';
+      }
+      return formatDistanceToNow(parsedDate, { addSuffix: true, locale: ptBR });
+    } catch (error) {
+      console.error('Error formatting date in ConversationListItem:', error);
+      return ''; // Return empty string on error to prevent crashing
+    }
   };
 
   return (
