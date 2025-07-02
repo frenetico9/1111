@@ -208,9 +208,9 @@ async function initializeDatabase() {
   
       await pool.sql`
         INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices") VALUES
-        ('barber1_admin1', 'admin1', 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{service1,service3}'),
-        ('barber2_admin1', 'admin1', 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{service1,service2}'),
-        ('barber1_admin2', 'admin2', 'Mestre Arthur', ${JSON.stringify([{dayOfWeek:1, start:'10:00', end:'20:00'}])}, '{service5,service6}');
+        ('barber1_admin1', 'admin1', 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{"service1","service3"}'),
+        ('barber2_admin1', 'admin1', 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{"service1","service2"}'),
+        ('barber1_admin2', 'admin2', 'Mestre Arthur', ${JSON.stringify([{dayOfWeek:1, start:'10:00', end:'20:00'}])}, '{"service5","service6"}');
       `;
       
       await pool.sql`
@@ -622,7 +622,7 @@ export const mockAddBarber = async (barber: Omit<Barber, 'id'>): Promise<Barber>
     const { name, availableHours, assignedServices, barbershopId } = barber;
     const { rows } = await pool.sql`
         INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices")
-        VALUES (${newId}, ${barbershopId}, ${name}, ${JSON.stringify(availableHours)}, ${`{${(assignedServices || []).join(',')}}`})
+        VALUES (${newId}, ${barbershopId}, ${name}, ${JSON.stringify(availableHours)}, ${assignedServices as any || null})
         RETURNING *;
     `;
     return mapToBarber(rows[0]);
@@ -633,7 +633,7 @@ export const mockUpdateBarber = async (barberId: string, barber: Partial<Omit<Ba
     const { name, availableHours, assignedServices } = barber;
     const { rows } = await pool.sql`
         UPDATE barbers
-        SET name = ${name}, "availableHours" = ${JSON.stringify(availableHours)}, "assignedServices" = ${assignedServices ? `{${assignedServices.join(',')}}` : null}
+        SET name = ${name}, "availableHours" = ${JSON.stringify(availableHours)}, "assignedServices" = ${assignedServices as any || null}
         WHERE id = ${barberId}
         RETURNING *;
     `;
@@ -838,13 +838,15 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
     }
 
     // 4. Get all booked appointments for that day and barber (if specified)
-    let query = `SELECT time FROM appointments WHERE "barbershopId" = $1 AND date = $2 AND status = 'scheduled'`;
-    const params: (string|null)[] = [barbershopId, dateStr];
+    let query;
+    let params: (string | null)[];
+
     if (barberId) {
-        query += ` AND "barberId" = $3`;
-        params.push(barberId);
+        query = pool.sql`SELECT time FROM appointments WHERE "barbershopId" = ${barbershopId} AND date = ${dateStr} AND status = 'scheduled' AND "barberId" = ${barberId}`;
+    } else {
+        query = pool.sql`SELECT time FROM appointments WHERE "barbershopId" = ${barbershopId} AND date = ${dateStr} AND status = 'scheduled'`;
     }
-    const { rows: bookedAppointments } = await pool.query(query, params);
+    const { rows: bookedAppointments } = await query;
     const bookedSlots = bookedAppointments.map(a => a.time);
 
     // 5. Filter out booked slots
