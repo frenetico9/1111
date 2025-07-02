@@ -152,6 +152,15 @@ async function initializeDatabase() {
             throw e;
         }
     }
+    
+    try {
+        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByClient" BOOLEAN DEFAULT FALSE;`;
+        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByAdmin" BOOLEAN DEFAULT FALSE;`;
+        console.log('Ensured soft delete columns on chats table.');
+    } catch (e: any) {
+        console.error("An unexpected error occurred while adding soft delete columns to chats table:", e);
+        throw e;
+    }
 
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chat_messages (
@@ -278,7 +287,7 @@ const toIsoString = (dateInput: any): string => {
     if (!dateInput) {
       throw new Error("Input is null or undefined.");
     }
-    const date = new Date(dateInput);
+    const date = dateInput instanceof Date ? dateInput : parseISO(String(dateInput));
     if (isNaN(date.getTime())) {
       throw new Error(`Input "${dateInput}" results in an invalid date.`);
     }
@@ -295,7 +304,7 @@ const toOptionalIsoString = (dateInput: any): string | undefined => {
     return undefined;
   }
   try {
-    const date = new Date(dateInput);
+    const date = dateInput instanceof Date ? dateInput : parseISO(String(dateInput));
     if (isNaN(date.getTime())) {
        throw new Error(`Input "${dateInput}" results in an invalid date.`);
     }
@@ -1043,6 +1052,21 @@ export const mockGetAvailableTimeSlots = async (
 
 // --- CHAT API ---
 
+export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
+    await ensureDbInitialized();
+    
+    let result;
+    if (userType === 'client') {
+        result = await pool.sql`UPDATE chats SET "deletedByClient" = true WHERE id = ${chatId}`;
+    } else if (userType === 'admin') {
+        result = await pool.sql`UPDATE chats SET "deletedByAdmin" = true WHERE id = ${chatId}`;
+    } else {
+        throw new Error("Invalid user type for chat deletion.");
+    }
+    
+    return result.rowCount > 0;
+};
+
 export const mockCreateOrGetChat = async (clientId: string, barbershopId: string): Promise<string> => {
     await ensureDbInitialized();
     
@@ -1073,7 +1097,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
         FROM chats c
         LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
         LEFT JOIN users u ON c."clientId" = u.id
-        WHERE c."clientId" = ${clientId}
+        WHERE c."clientId" = ${clientId} AND c."deletedByClient" = FALSE
         ORDER BY c."lastMessageAt" DESC NULLS LAST
     `;
     return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
@@ -1101,7 +1125,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
         FROM chats c
         LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
         LEFT JOIN users u ON c."clientId" = u.id
-        WHERE c."barbershopId" = ${barbershopId}
+        WHERE c."barbershopId" = ${barbershopId} AND c."deletedByAdmin" = FALSE
         ORDER BY c."lastMessageAt" DESC NULLS LAST
     `;
     return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
