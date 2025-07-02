@@ -70,7 +70,7 @@ const ConversationListItem: React.FC<{
             e.stopPropagation();
             onDelete(conversation.id);
         }}
-        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors"
         title="Apagar conversa"
         aria-label="Apagar conversa"
       >
@@ -87,11 +87,7 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
   
   const dateObj = parseISO(message.createdAt);
   const formattedTime = !isNaN(dateObj.getTime())
-    ? dateObj.toLocaleTimeString('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? format(dateObj, 'HH:mm')
     : '??:??';
 
   return (
@@ -166,55 +162,32 @@ const ClientChatPage: React.FC = () => {
 
   const initiateNewConversation = useCallback(async (barbershopId: string) => {
     if (!user) return;
-    setLoadingMessages(true);
     try {
-        const profile = await mockGetBarbershopProfile(barbershopId);
-        if (!profile) {
-            addNotification({ message: 'Barbearia não encontrada.', type: 'error' });
-            navigate('/client/chat');
-            return;
-        }
-        const chatId = await mockCreateOrGetChat(user.id, barbershopId);
-        if (!chatId) {
-            throw new Error("Não foi possível criar ou obter o chat.");
-        }
-        const newConvo: ChatConversation = {
-            id: chatId,
-            clientId: user.id,
-            clientName: user.name || '',
-            barbershopId: profile.id,
-            barbershopName: profile.name,
-            barbershopLogoUrl: profile.logoUrl,
-            barbershopPhone: profile.phone,
-            lastMessageAt: new Date().toISOString(),
-            hasUnread: false,
-        };
-        setActiveConversation(newConvo);
-        const existingMessages = await mockGetMessagesForChat(chatId, user.id, UserType.CLIENT);
-        setMessages(existingMessages);
-        if (!conversations.some(c => c.id === chatId)) {
-            setConversations(prev => [newConvo, ...prev]);
-        }
+        await mockCreateOrGetChat(user.id, barbershopId);
+        // After successfully creating/getting the chat, refresh the list.
+        await fetchConversations();
+        // The main useEffect will see the new conversation in the list and select it.
     } catch (error) {
         console.error("Erro ao iniciar nova conversa:", error);
         addNotification({ message: "Erro ao iniciar nova conversa.", type: 'error' });
-    } finally {
-        setLoadingMessages(false);
+        navigate('/client/chat', { replace: true });
     }
-  }, [user, addNotification, navigate, conversations]);
+  }, [user, addNotification, navigate, fetchConversations]);
 
   useEffect(() => {
-    if (barbershopIdFromUrl && user) {
+    if (barbershopIdFromUrl && user && !loadingConversations) {
         const existingConvo = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
         if (existingConvo) {
             if (activeConversation?.id !== existingConvo.id) {
                 handleSelectConversation(existingConvo);
             }
-        } else if (!loadingConversations) { // Only try to create new if convos are loaded and it's not there
+        } else {
+            // If not found after loading all conversations, it's safe to create it.
             initiateNewConversation(barbershopIdFromUrl);
         }
     }
   }, [barbershopIdFromUrl, user, conversations, loadingConversations, handleSelectConversation, initiateNewConversation, activeConversation]);
+
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
