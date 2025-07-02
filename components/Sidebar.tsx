@@ -9,10 +9,9 @@ interface SidebarLinkProps {
   iconName: string; // Material Icons name
   children: React.ReactNode;
   onClick?: () => void;
-  unreadCount?: number;
 }
 
-const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, onClick, unreadCount }) => {
+const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, onClick }) => {
   return (
     <ReactRouterDOM.NavLink
       to={to}
@@ -28,12 +27,7 @@ const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, on
       <span className="material-icons-outlined text-xl group-hover:text-primary-blue transition-colors">
         {iconName}
       </span>
-      <span className="flex-grow">{children}</span>
-       {unreadCount && unreadCount > 0 && (
-        <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-          {unreadCount > 9 ? '9+' : unreadCount}
-        </span>
-      )}
+      <span>{children}</span>
     </ReactRouterDOM.NavLink>
   );
 };
@@ -43,7 +37,7 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
-  const { user, barbershopProfile, barbershopSubscription, unreadChatCount } = useAuth();
+  const { user, barbershopProfile, barbershopSubscription } = useAuth();
   const isPro = barbershopSubscription?.planId === SubscriptionPlanTier.PRO;
 
   // Construct the correct URL for the public page. The user's ID is the barbershop's ID for an admin.
@@ -83,7 +77,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
         )}
 
         <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}>Agendamentos</SidebarNavLink>
-        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick} unreadCount={unreadChatCount}>Chat</SidebarNavLink>
+        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick}>Chat</SidebarNavLink>
         <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}>Serviços</SidebarNavLink>
         <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}>Equipe</SidebarNavLink>
         <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}>Clientes</SidebarNavLink>

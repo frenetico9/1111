@@ -6,15 +6,16 @@ import {
   mockGetAdminConversations,
   mockGetMessagesForChat,
   mockSendMessage,
+  mockCreateOrGetChat,
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
-import { formatDistance } from 'date-fns/formatDistance';
+import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { formatDistance } from 'date-fns/formatDistance';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Modal from '../../components/Modal';
 
 
 const ConversationListItem: React.FC<{
@@ -27,6 +28,10 @@ const ConversationListItem: React.FC<{
     if (!date) return '';
     try {
       const parsedDate = parseISO(date);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date value received for formatting:', date);
+        return '';
+      }
       // Fix for potential TypeScript typing issue with date-fns locale
       const formatOptions = { addSuffix: true, locale: ptBR };
       return formatDistance(parsedDate, new Date(), formatOptions);
@@ -51,10 +56,8 @@ const ConversationListItem: React.FC<{
         </div>
         <div className="flex justify-between items-start">
           <p className="text-xs text-text-light truncate pr-2">{conversation.lastMessage || 'Nenhuma mensagem ainda.'}</p>
-          {conversation.unreadCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0">
-              {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
-            </span>
+          {conversation.hasUnread && (
+            <span className="w-2.5 h-2.5 bg-primary-blue rounded-full flex-shrink-0 mt-1"></span>
           )}
         </div>
       </div>
@@ -62,30 +65,23 @@ const ConversationListItem: React.FC<{
   );
 };
 
-const formatMessageTime = (isoString: string) => {
-  try {
-    return new Date(isoString).toLocaleTimeString('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (e) {
-    console.error("Failed to format message time:", e);
-    return '--:--';
-  }
-};
-
 const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = ({ message, isCurrentUser }) => {
   const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
   const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
   const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
+
+  const formattedTime = new Date(message.createdAt).toLocaleTimeString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <div className={`flex ${alignment} mb-3`}>
       <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-sm ${bubbleColor} ${borderRadius}`}>
         <p className="text-sm break-words">{message.content}</p>
         <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
-          {formatMessageTime(message.createdAt)}
+          {formattedTime}
         </p>
       </div>
     </div>
@@ -93,7 +89,7 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
 };
 
 const AdminChatPage: React.FC = () => {
-    const { user, refreshUnreadCount } = useAuth();
+    const { user } = useAuth();
     const { addNotification } = useNotification();
     const { clientId: clientIdFromUrl } = useParams<{ clientId?: string }>();
     const navigate = useNavigate();
@@ -106,7 +102,6 @@ const AdminChatPage: React.FC = () => {
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [showCallModal, setShowCallModal] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -122,14 +117,13 @@ const AdminChatPage: React.FC = () => {
         try {
             const convos = await mockGetAdminConversations(user.id);
             setConversations(convos);
-            refreshUnreadCount();
         } catch (error) {
             console.error('Erro ao buscar conversas:', error);
             addNotification({ message: "Erro ao buscar conversas.", type: 'error' });
         } finally {
             setLoadingConversations(false);
         }
-    }, [user, addNotification, refreshUnreadCount]);
+    }, [user, addNotification]);
 
     useEffect(() => {
         fetchConversations();
@@ -144,14 +138,16 @@ const AdminChatPage: React.FC = () => {
         try {
             const fetchedMessages = await mockGetMessagesForChat(conversation.id, user.id, UserType.ADMIN);
             setMessages(fetchedMessages);
-            await fetchConversations(); // Refreshes all counts
+            // Mark as read locally
+            setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, hasUnread: false } : c));
         } catch (error) {
             console.error('Erro ao carregar mensagens:', error);
             addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
         } finally {
             setLoadingMessages(false);
         }
-    }, [user, navigate, addNotification, activeConversation, fetchConversations]);
+    }, [user, navigate, addNotification, activeConversation]);
+
 
     useEffect(() => {
         if (clientIdFromUrl && conversations.length > 0) {
@@ -172,12 +168,8 @@ const AdminChatPage: React.FC = () => {
             const sentMessage = await mockSendMessage(activeConversation.id, user.id, UserType.ADMIN, newMessage.trim());
             setMessages(prev => [...prev, sentMessage]);
             setNewMessage('');
-            // Update conversation list with new last message and timestamp
-            setConversations(prev => prev.map(c => 
-                c.id === activeConversation.id 
-                ? { ...c, lastMessage: sentMessage.content, lastMessageAt: sentMessage.createdAt }
-                : c
-            ).sort((a,b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()));
+            // Update conversation list
+            fetchConversations();
         } catch (error) {
             console.error('Falha ao enviar mensagem:', error);
             addNotification({ message: 'Falha ao enviar mensagem.', type: 'error' });
@@ -216,14 +208,14 @@ const AdminChatPage: React.FC = () => {
                         <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
                             <h3 className="font-semibold text-text-dark">{activeConversation.clientName}</h3>
                             {activeConversation.clientPhone && (
-                                <button
-                                    onClick={() => setShowCallModal(true)}
+                                <a 
+                                    href={`tel:${activeConversation.clientPhone.replace(/\D/g, '')}`} 
                                     className="text-primary-blue hover:text-primary-blue-dark transition-colors p-2 rounded-full hover:bg-light-blue"
                                     aria-label={`Ligar para ${activeConversation.clientName}`}
                                     title={`Ligar para ${activeConversation.clientPhone}`}
                                 >
                                     <span className="material-icons-outlined">call</span>
-                                </button>
+                                </a>
                             )}
                         </div>
                         <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
@@ -259,18 +251,6 @@ const AdminChatPage: React.FC = () => {
                     </div>
                 )}
             </div>
-            {activeConversation && (
-                 <Modal isOpen={showCallModal} onClose={() => setShowCallModal(false)} title="Informações de Contato" size="sm">
-                    <div className="text-center">
-                        <p className="text-sm text-text-light mb-1">Telefone de</p>
-                        <p className="font-bold text-lg text-primary-blue mb-4">{activeConversation.clientName}</p>
-                        <p className="text-2xl font-semibold bg-light-blue p-3 rounded-lg text-text-dark">{activeConversation.clientPhone}</p>
-                        <a href={`tel:${activeConversation.clientPhone?.replace(/\D/g, '')}`}>
-                            <Button fullWidth className="mt-6">Ligar Agora</Button>
-                        </a>
-                    </div>
-                 </Modal>
-            )}
         </div>
     );
 };

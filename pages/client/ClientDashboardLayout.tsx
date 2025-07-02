@@ -9,10 +9,9 @@ interface ClientSidebarLinkProps {
   children: React.ReactNode;
   iconName: string;
   onClick: () => void;
-  unreadCount?: number;
 }
 
-const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, iconName, onClick, unreadCount }) => (
+const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, iconName, onClick }) => (
   <ReactRouterDOM.NavLink
     to={to}
     onClick={onClick}
@@ -28,17 +27,12 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
     <span className="material-icons-outlined text-xl group-hover:text-primary-blue transition-colors">
       {iconName}
     </span>
-    <span className="flex-grow">{children}</span>
-     {unreadCount && unreadCount > 0 && (
-        <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-          {unreadCount > 9 ? '9+' : unreadCount}
-        </span>
-      )}
+    <span>{children}</span>
   </ReactRouterDOM.NavLink>
 );
 
 const ClientDashboardLayout: React.FC = () => {
-  const { user, logout, unreadChatCount } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = ReactRouterDOM.useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -64,7 +58,7 @@ const ClientDashboardLayout: React.FC = () => {
         <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}>Meus Agendamentos</ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}>Meu Perfil</ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}>Encontrar Barbearias</ClientSidebarLink>
-        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar} unreadCount={unreadChatCount}>Chat</ClientSidebarLink>
+        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>Chat</ClientSidebarLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">
