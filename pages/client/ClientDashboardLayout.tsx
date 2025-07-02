@@ -27,12 +27,12 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
     <span className="material-icons-outlined text-xl group-hover:text-primary-blue transition-colors">
       {iconName}
     </span>
-    <span>{children}</span>
+    <div className="flex-grow flex justify-between items-center">{children}</div>
   </ReactRouterDOM.NavLink>
 );
 
 const ClientDashboardLayout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, unreadChatCount } = useAuth();
   const navigate = ReactRouterDOM.useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -55,10 +55,17 @@ const ClientDashboardLayout: React.FC = () => {
         </div>
       </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow">
-        <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}>Meus Agendamentos</ClientSidebarLink>
-        <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}>Meu Perfil</ClientSidebarLink>
-        <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}>Encontrar Barbearias</ClientSidebarLink>
-        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>Chat</ClientSidebarLink>
+        <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}><span>Meus Agendamentos</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}><span>Meu Perfil</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}><span>Encontrar Barbearias</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>
+          <span>Chat</span>
+          {unreadChatCount > 0 && (
+            <span className="bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+            </span>
+          )}
+        </ClientSidebarLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">
