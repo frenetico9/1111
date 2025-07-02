@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Review } from '../types';
 import StarRating from './StarRating';
 import Button from './Button';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface ReviewCardProps {
   review: Review;

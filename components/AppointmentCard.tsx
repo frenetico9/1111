@@ -1,8 +1,9 @@
 import React from 'react';
 import { Appointment, UserType } from '../types';
 import Button from './Button';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface AppointmentCardProps {
   appointment: Appointment;

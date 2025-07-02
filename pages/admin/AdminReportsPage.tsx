@@ -6,8 +6,10 @@ import { mockGetAdminAppointments, mockGetServicesForBarbershop, mockGetBarbersF
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Button from '../../components/Button';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { format, subDays, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { subDays } from 'date-fns/subDays';
+import { startOfDay } from 'date-fns/startOfDay';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 const StatCard: React.FC<{ title: string; value: string | number; iconName?: string; description?: string; }> = ({ title, value, iconName, description }) => (
     <div className="bg-white p-5 rounded-xl shadow-lg border border-light-blue hover:shadow-xl transition-shadow h-full">

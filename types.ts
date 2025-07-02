@@ -132,6 +132,6 @@ export interface ChatConversation {
   barbershopLogoUrl?: string;
   barbershopPhone?: string;
   lastMessage?: string;
-  lastMessageAt: string;
+  lastMessageAt?: string;
   hasUnread: boolean; // For the current viewer
 }

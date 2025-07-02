@@ -10,8 +10,10 @@ import {
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format, parseISO, formatDistanceToNowStrict } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { parseISO } from 'date-fns/parseISO';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
 
@@ -22,8 +24,9 @@ const ConversationListItem: React.FC<{
   onClick: () => void;
 }> = ({ conversation, isSelected, onClick }) => {
   const bgColor = isSelected ? 'bg-light-blue' : 'bg-white hover:bg-gray-50';
-  const formatLastMessageTime = (date: string) => {
-    return formatDistanceToNowStrict(parseISO(date), { addSuffix: true, locale: ptBR });
+  const formatLastMessageTime = (date?: string) => {
+    if (!date) return '';
+    return formatDistanceToNow(parseISO(date), { addSuffix: true, locale: ptBR });
   };
 
   return (

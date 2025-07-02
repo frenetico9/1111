@@ -14,8 +14,8 @@ import DatePicker from '../../components/DatePicker';
 import TimeSlotPicker from '../../components/TimeSlotPicker';
 import Button from '../../components/Button';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns/format';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import BackButton from '../../components/BackButton';
 
 const BookingPage: React.FC = () => {

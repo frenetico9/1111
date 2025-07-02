@@ -1,18 +1,16 @@
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
-import {
-  addMinutes,
-  format,
-  getDay,
-  isSameDay,
-  isBefore,
-  isEqual,
-  parse,
-  set,
-  startOfDay,
-  parseISO,
-} from 'date-fns';
+import { addMinutes } from 'date-fns/addMinutes';
+import { format } from 'date-fns/format';
+import { getDay } from 'date-fns/getDay';
+import { isSameDay } from 'date-fns/isSameDay';
+import { isBefore } from 'date-fns/isBefore';
+import { isEqual } from 'date-fns/isEqual';
+import { parse } from 'date-fns/parse';
+import { set } from 'date-fns/set';
+import { startOfDay } from 'date-fns/startOfDay';
+import { parseISO } from 'date-fns/parseISO';
 
 
 // --- DATABASE CONNECTION SETUP ---
@@ -1056,12 +1054,12 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
             bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
             u.name as "clientName"
         FROM chats c
-        JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-        JOIN users u ON c."clientId" = u.id
+        LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+        LEFT JOIN users u ON c."clientId" = u.id
         WHERE c."clientId" = ${clientId}
         ORDER BY c."lastMessageAt" DESC
     `;
-    return rows.map(row => ({
+    return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
         id: row.id,
         clientId: row.clientId,
         clientName: row.clientName,
@@ -1071,7 +1069,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
         barbershopPhone: row.barbershopPhone,
         lastMessage: row.lastMessage,
         hasUnread: row.hasUnread,
-        lastMessageAt: toIsoString(row.lastMessageAt)
+        lastMessageAt: toOptionalIsoString(row.lastMessageAt)
     }));
 };
 
@@ -1083,12 +1081,12 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
             bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
             u.name as "clientName"
         FROM chats c
-        JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-        JOIN users u ON c."clientId" = u.id
+        LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+        LEFT JOIN users u ON c."clientId" = u.id
         WHERE c."barbershopId" = ${barbershopId}
         ORDER BY c."lastMessageAt" DESC
     `;
-    return rows.map(row => ({
+    return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
         id: row.id,
         clientId: row.clientId,
         clientName: row.clientName,
@@ -1098,7 +1096,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
         barbershopPhone: row.barbershopPhone,
         lastMessage: row.lastMessage,
         hasUnread: row.hasUnread,
-        lastMessageAt: toIsoString(row.lastMessageAt)
+        lastMessageAt: toOptionalIsoString(row.lastMessageAt)
     }));
 };
 
