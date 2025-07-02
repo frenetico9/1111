@@ -33,7 +33,8 @@ const ConversationListItem: React.FC<{
         console.warn('Invalid date value received for formatting:', date);
         return '';
       }
-      return formatDistance(parsedDate, new Date(), { addSuffix: true, locale: ptBR });
+      const formatOptions = { addSuffix: true, locale: ptBR };
+      return formatDistance(parsedDate, new Date(), formatOptions);
     } catch (error) {
       console.error('Error formatting date in ConversationListItem:', error);
       return ''; // Return empty string on error to prevent crashing
