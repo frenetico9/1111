@@ -247,14 +247,10 @@ const ClientChatPage: React.FC = () => {
                     <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
                         <h3 className="font-semibold text-text-dark">{activeConversation.barbershopName}</h3>
                         {activeConversation.barbershopPhone && (
-                           <a 
-                                href={`tel:${activeConversation.barbershopPhone.replace(/\D/g, '')}`} 
-                                className="text-primary-blue hover:text-primary-blue-dark transition-colors p-2 rounded-full hover:bg-light-blue"
-                                aria-label={`Ligar para ${activeConversation.barbershopName}`}
-                                title={`Ligar para ${activeConversation.barbershopPhone}`}
-                            >
-                                <span className="material-icons-outlined">call</span>
-                            </a>
+                           <div className="flex items-center gap-1.5 bg-light-blue text-primary-blue px-3 py-1.5 rounded-lg text-sm font-medium">
+                               <span className="material-icons-outlined text-base">phone</span>
+                               <span>{activeConversation.barbershopPhone}</span>
+                           </div>
                         )}
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
