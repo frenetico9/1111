@@ -138,6 +138,33 @@ async function initializeDatabase() {
       );
     `;
 
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "senderType" TEXT NOT NULL,
+        content TEXT NOT NULL,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `;
+
+    // Before adding the unique constraint, clean up any potential duplicates
+    // that might exist from previous runs without the constraint.
+    // This keeps the most recent conversation for each pair.
+    await pool.sql`
+        DELETE FROM chats
+        WHERE id IN (
+            SELECT id FROM (
+                SELECT 
+                    id,
+                    row_number() OVER(PARTITION BY "clientId", "barbershopId" ORDER BY "lastMessageAt" DESC NULLS LAST) as rn
+                FROM chats
+            ) t
+            WHERE t.rn > 1
+        );
+    `;
+
     // Explicitly add the UNIQUE constraint to handle cases where the table was created without the constraint.
     // This makes the initialization process more robust and ensures ON CONFLICT works as expected.
     try {
@@ -152,17 +179,6 @@ async function initializeDatabase() {
             throw e;
         }
     }
-
-    await pool.sql`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "senderType" TEXT NOT NULL,
-        content TEXT NOT NULL,
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
-      );
-    `;
 
     console.log('Schema verification complete.');
 
