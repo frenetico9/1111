@@ -27,7 +27,7 @@ const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, on
       <span className="material-icons-outlined text-xl group-hover:text-primary-blue transition-colors">
         {iconName}
       </span>
-      <span>{children}</span>
+      <div className="flex-grow flex justify-between items-center">{children}</div>
     </ReactRouterDOM.NavLink>
   );
 };
@@ -37,7 +37,7 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
-  const { user, barbershopProfile, barbershopSubscription } = useAuth();
+  const { user, barbershopProfile, barbershopSubscription, unreadChatCount } = useAuth();
   const isPro = barbershopSubscription?.planId === SubscriptionPlanTier.PRO;
 
   // Construct the correct URL for the public page. The user's ID is the barbershop's ID for an admin.
@@ -56,10 +56,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
         </div>
       </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow overflow-y-auto">
-        <SidebarNavLink to="/admin/overview" iconName="bar_chart" onClick={onLinkClick}>Visão Geral</SidebarNavLink>
+        <SidebarNavLink to="/admin/overview" iconName="bar_chart" onClick={onLinkClick}><span>Visão Geral</span></SidebarNavLink>
         
         {isPro ? (
-            <SidebarNavLink to="/admin/reports" iconName="analytics" onClick={onLinkClick}>Relatórios</SidebarNavLink>
+            <SidebarNavLink to="/admin/reports" iconName="analytics" onClick={onLinkClick}><span>Relatórios</span></SidebarNavLink>
         ) : (
             <ReactRouterDOM.Link 
                 to="/admin/subscription" 
@@ -76,17 +76,24 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
             </ReactRouterDOM.Link>
         )}
 
-        <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}>Agendamentos</SidebarNavLink>
-        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick}>Chat</SidebarNavLink>
-        <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}>Serviços</SidebarNavLink>
-        <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}>Equipe</SidebarNavLink>
-        <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}>Clientes</SidebarNavLink>
-        <SidebarNavLink to="/admin/reviews" iconName="reviews" onClick={onLinkClick}>Avaliações</SidebarNavLink>
-        <SidebarNavLink to="/admin/subscription" iconName="credit_card" onClick={onLinkClick}>Assinatura</SidebarNavLink>
-        <SidebarNavLink to="/admin/settings" iconName="settings" onClick={onLinkClick}>Configurações</SidebarNavLink>
+        <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}><span>Agendamentos</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick}>
+            <span>Chat</span>
+            {unreadChatCount > 0 && (
+                <span className="bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+            )}
+        </SidebarNavLink>
+        <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}><span>Serviços</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}><span>Equipe</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}><span>Clientes</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/reviews" iconName="reviews" onClick={onLinkClick}><span>Avaliações</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/subscription" iconName="credit_card" onClick={onLinkClick}><span>Assinatura</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/settings" iconName="settings" onClick={onLinkClick}><span>Configurações</span></SidebarNavLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
-        <SidebarNavLink to={publicPageUrl} iconName="storefront" onClick={onLinkClick}>Ver Página Pública</SidebarNavLink>
+        <SidebarNavLink to={publicPageUrl} iconName="storefront" onClick={onLinkClick}><span>Ver Página Pública</span></SidebarNavLink>
       </div>
     </aside>
   );
