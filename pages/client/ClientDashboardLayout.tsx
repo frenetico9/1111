@@ -58,6 +58,7 @@ const ClientDashboardLayout: React.FC = () => {
         <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}>Meus Agendamentos</ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}>Meu Perfil</ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}>Encontrar Barbearias</ClientSidebarLink>
+        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>Chat</ClientSidebarLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">

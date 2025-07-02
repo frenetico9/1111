@@ -1,5 +1,5 @@
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 import {
   addMinutes,
@@ -140,6 +140,31 @@ async function initializeDatabase() {
           "nextBillingDate" TIMESTAMP WITH TIME ZONE
         );
       `;
+
+      await pool.sql`
+        CREATE TABLE chats (
+          id TEXT PRIMARY KEY,
+          "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          "lastMessage" TEXT,
+          "lastMessageAt" TIMESTAMP WITH TIME ZONE,
+          "clientHasUnread" BOOLEAN DEFAULT FALSE,
+          "adminHasUnread" BOOLEAN DEFAULT FALSE,
+          UNIQUE("clientId", "barbershopId")
+        );
+      `;
+
+      await pool.sql`
+        CREATE TABLE chat_messages (
+          id TEXT PRIMARY KEY,
+          "chatId" TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+          "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          "senderType" TEXT NOT NULL,
+          content TEXT NOT NULL,
+          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+        );
+      `;
+
       console.log('Tables created.');
   
       console.log('Seeding data...');
@@ -190,6 +215,17 @@ async function initializeDatabase() {
         ('admin1', 'free', 'active', NOW(), null),
         ('admin2', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
       `;
+
+      await pool.sql`
+        INSERT INTO chats (id, "clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
+        ('chat1', 'client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true);
+      `;
+      await pool.sql`
+        INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt") VALUES
+        ('msg1', 'chat1', 'admin1', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
+        ('msg2', 'chat1', 'client1', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
+      `;
+
   
       console.log('Database initialization complete.');
       isDbInitialized = true;
@@ -341,6 +377,15 @@ const mapToSubscription = (row: any): BarbershopSubscription => ({
     startDate: toIsoString(row.startDate),
     endDate: toOptionalIsoString(row.endDate),
     nextBillingDate: toOptionalIsoString(row.nextBillingDate),
+});
+
+const mapToChatMessage = (row: any): ChatMessage => ({
+  id: row.id,
+  chatId: row.chatId,
+  senderId: row.senderId,
+  senderType: row.senderType,
+  content: row.content,
+  createdAt: toIsoString(row.createdAt),
 });
 
 
@@ -985,4 +1030,126 @@ export const mockGetAvailableTimeSlots = async (
       }
       return true;
     });
+};
+
+// --- CHAT API ---
+
+export const mockCreateOrGetChat = async (clientId: string, barbershopId: string): Promise<string> => {
+    await ensureDbInitialized();
+    const { rows: existing } = await pool.sql`SELECT id FROM chats WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId}`;
+    if (existing.length > 0) {
+        return existing[0].id;
+    }
+    const newChatId = generateId('chat');
+    await pool.sql`
+        INSERT INTO chats (id, "clientId", "barbershopId", "lastMessageAt")
+        VALUES (${newChatId}, ${clientId}, ${barbershopId}, NOW())
+    `;
+    return newChatId;
+};
+
+export const mockGetClientConversations = async (clientId: string): Promise<ChatConversation[]> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`
+        SELECT 
+            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread",
+            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
+            u.name as "clientName"
+        FROM chats c
+        JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+        JOIN users u ON c."clientId" = u.id
+        WHERE c."clientId" = ${clientId}
+        ORDER BY c."lastMessageAt" DESC
+    `;
+    return rows.map(row => ({
+        id: row.id,
+        clientId: row.clientId,
+        clientName: row.clientName,
+        barbershopId: row.barbershopId,
+        barbershopName: row.barbershopName,
+        barbershopLogoUrl: row.barbershopLogoUrl,
+        barbershopPhone: row.barbershopPhone,
+        lastMessage: row.lastMessage,
+        hasUnread: row.hasUnread,
+        lastMessageAt: toIsoString(row.lastMessageAt)
+    }));
+};
+
+export const mockGetAdminConversations = async (barbershopId: string): Promise<ChatConversation[]> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`
+        SELECT 
+            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread",
+            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
+            u.name as "clientName"
+        FROM chats c
+        JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+        JOIN users u ON c."clientId" = u.id
+        WHERE c."barbershopId" = ${barbershopId}
+        ORDER BY c."lastMessageAt" DESC
+    `;
+    return rows.map(row => ({
+        id: row.id,
+        clientId: row.clientId,
+        clientName: row.clientName,
+        barbershopId: row.barbershopId,
+        barbershopName: row.barbershopName,
+        barbershopLogoUrl: row.barbershopLogoUrl,
+        barbershopPhone: row.barbershopPhone,
+        lastMessage: row.lastMessage,
+        hasUnread: row.hasUnread,
+        lastMessageAt: toIsoString(row.lastMessageAt)
+    }));
+};
+
+export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<ChatMessage[]> => {
+    await ensureDbInitialized();
+    // Mark messages as read for the user requesting them
+    if (userType === 'client') {
+        await pool.sql`UPDATE chats SET "clientHasUnread" = false WHERE id = ${chatId}`;
+    } else {
+        await pool.sql`UPDATE chats SET "adminHasUnread" = false WHERE id = ${chatId}`;
+    }
+
+    const { rows } = await pool.sql`
+        SELECT * FROM chat_messages WHERE "chatId" = ${chatId} ORDER BY "createdAt" ASC
+    `;
+    return rows.map(mapToChatMessage);
+};
+
+export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
+    await ensureDbInitialized();
+    const newMessage: ChatMessage = {
+        id: generateId('msg'),
+        chatId,
+        senderId,
+        senderType,
+        content,
+        createdAt: new Date().toISOString(),
+    };
+
+    await pool.sql`
+        INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt")
+        VALUES (${newMessage.id}, ${chatId}, ${senderId}, ${senderType}, ${content}, ${newMessage.createdAt})
+    `;
+    
+    if (senderType === 'client') {
+        await pool.sql`
+            UPDATE chats SET 
+                "lastMessage" = ${content},
+                "lastMessageAt" = ${newMessage.createdAt},
+                "adminHasUnread" = true
+            WHERE id = ${chatId}
+        `;
+    } else {
+        await pool.sql`
+            UPDATE chats SET 
+                "lastMessage" = ${content},
+                "lastMessageAt" = ${newMessage.createdAt},
+                "clientHasUnread" = true
+            WHERE id = ${chatId}
+        `;
+    }
+
+    return newMessage;
 };

@@ -24,6 +24,7 @@ import ClientDashboardLayout from './pages/client/ClientDashboardLayout';
 import ClientAppointmentsPage from './pages/client/ClientAppointmentsPage';
 import ClientProfilePage from './pages/client/ClientProfilePage';
 import ClientFindBarbershopsPage from './pages/client/ClientFindBarbershopsPage';
+import ClientChatPage from './pages/client/ClientChatPage'; // New Import
 
 // Admin Pages & Layout
 import AdminDashboardLayout from './pages/admin/AdminDashboardLayout';
@@ -36,6 +37,7 @@ import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminSubscriptionPage from './pages/admin/AdminSubscriptionPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage'; // New Import
+import AdminChatPage from './pages/admin/AdminChatPage'; // New Import
 
 // Components
 import LgpdConsentModal from './components/LgpdConsentModal';
@@ -112,6 +114,8 @@ const App: React.FC = () => {
             <ReactRouterDOM.Route path="appointments" element={<ClientAppointmentsPage />} />
             <ReactRouterDOM.Route path="profile" element={<ClientProfilePage />} />
             <ReactRouterDOM.Route path="find-barbershops" element={<ClientFindBarbershopsPage />} />
+            <ReactRouterDOM.Route path="chat" element={<ClientChatPage />} />
+            <ReactRouterDOM.Route path="chat/:barbershopId" element={<ClientChatPage />} />
           </ReactRouterDOM.Route>
         </ReactRouterDOM.Route>
 
@@ -128,6 +132,8 @@ const App: React.FC = () => {
             <ReactRouterDOM.Route path="reviews" element={<AdminReviewsPage />} />
             <ReactRouterDOM.Route path="subscription" element={<AdminSubscriptionPage />} />
             <ReactRouterDOM.Route path="settings" element={<AdminSettingsPage />} />
+            <ReactRouterDOM.Route path="chat" element={<AdminChatPage />} />
+            <ReactRouterDOM.Route path="chat/:clientId" element={<AdminChatPage />} />
           </ReactRouterDOM.Route>
         </ReactRouterDOM.Route>
         

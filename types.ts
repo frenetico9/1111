@@ -112,3 +112,26 @@ export interface BarbershopSearchResultItem extends BarbershopProfile {
   sampleServices: Pick<Service, 'id' | 'name' | 'price'>[]; 
   subscriptionTier: SubscriptionPlanTier;
 }
+
+// CHAT TYPES
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderType: 'client' | 'admin';
+  content: string;
+  createdAt: string; // ISO date string
+}
+
+export interface ChatConversation {
+  id: string; // chat id
+  clientId: string;
+  clientName: string;
+  barbershopId: string;
+  barbershopName: string;
+  barbershopLogoUrl?: string;
+  barbershopPhone?: string;
+  lastMessage?: string;
+  lastMessageAt: string;
+  hasUnread: boolean; // For the current viewer
+}

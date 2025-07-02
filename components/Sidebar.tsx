@@ -77,6 +77,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
         )}
 
         <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}>Agendamentos</SidebarNavLink>
+        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick}>Chat</SidebarNavLink>
         <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}>Serviços</SidebarNavLink>
         <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}>Equipe</SidebarNavLink>
         <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}>Clientes</SidebarNavLink>
