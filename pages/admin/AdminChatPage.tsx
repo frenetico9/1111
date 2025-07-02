@@ -6,7 +6,7 @@ import {
   mockGetAdminConversations,
   mockGetMessagesForChat,
   mockSendMessage,
-  mockCreateOrGetChat,
+  mockDeleteChatForUser,
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -22,7 +22,8 @@ const ConversationListItem: React.FC<{
   conversation: ChatConversation;
   isSelected: boolean;
   onClick: () => void;
-}> = ({ conversation, isSelected, onClick }) => {
+  onDelete: (conversationId: string) => void;
+}> = ({ conversation, isSelected, onClick, onDelete }) => {
   const bgColor = isSelected ? 'bg-light-blue' : 'bg-white hover:bg-gray-50';
   const formatLastMessageTime = (date?: string) => {
     if (!date) return '';
@@ -32,7 +33,6 @@ const ConversationListItem: React.FC<{
         console.warn('Invalid date value received for formatting:', date);
         return '';
       }
-      // Fix for potential TypeScript typing issue with date-fns locale
       const formatOptions = { addSuffix: true, locale: ptBR };
       return formatDistance(parsedDate, new Date(), formatOptions);
     } catch (error) {
@@ -43,7 +43,7 @@ const ConversationListItem: React.FC<{
 
   return (
     <div
-      className={`flex items-center p-3 cursor-pointer transition-colors duration-150 border-b border-light-blue ${bgColor}`}
+      className={`group flex items-center p-3 cursor-pointer transition-colors duration-150 border-b border-light-blue ${bgColor}`}
       onClick={onClick}
     >
       <div className="w-12 h-12 rounded-full mr-3 bg-gray-200 flex items-center justify-center text-primary-blue text-lg font-bold flex-shrink-0">
@@ -61,6 +61,17 @@ const ConversationListItem: React.FC<{
           )}
         </div>
       </div>
+      <button
+        onClick={(e) => {
+            e.stopPropagation();
+            onDelete(conversation.id);
+        }}
+        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        title="Apagar conversa"
+        aria-label="Apagar conversa"
+      >
+        <span className="material-icons-outlined text-lg">delete</span>
+      </button>
     </div>
   );
 };
@@ -70,11 +81,14 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
   const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
   const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
 
-  const formattedTime = parseISO(message.createdAt).toLocaleTimeString('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const dateObj = parseISO(message.createdAt);
+  const formattedTime = !isNaN(dateObj.getTime())
+    ? dateObj.toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '??:??';
 
   return (
     <div className={`flex ${alignment} mb-3`}>
@@ -180,6 +194,28 @@ const AdminChatPage: React.FC = () => {
         }
     };
 
+    const handleDeleteConversation = async (conversationId: string) => {
+        if (!window.confirm("Tem certeza que deseja apagar esta conversa? Esta ação não pode ser desfeita e a conversa será removida apenas da sua visualização.")) {
+            return;
+        }
+
+        try {
+            await mockDeleteChatForUser(conversationId, UserType.ADMIN);
+            addNotification({ message: "Conversa apagada com sucesso.", type: 'success' });
+
+            setConversations(prev => prev.filter(c => c.id !== conversationId));
+            if (activeConversation?.id === conversationId) {
+                setActiveConversation(null);
+                setMessages([]);
+                navigate('/admin/chat', { replace: true });
+            }
+            await refreshUnreadCount();
+        } catch (error) {
+            console.error("Erro ao apagar conversa:", error);
+            addNotification({ message: "Erro ao apagar conversa.", type: 'error' });
+        }
+    };
+
     return (
         <div className="flex h-[calc(100vh-120px)] bg-white rounded-lg shadow-xl border border-light-blue overflow-hidden">
             {/* Conversations List */}
@@ -195,6 +231,7 @@ const AdminChatPage: React.FC = () => {
                                 conversation={convo}
                                 isSelected={activeConversation?.id === convo.id}
                                 onClick={() => handleSelectConversation(convo)}
+                                onDelete={handleDeleteConversation}
                             />
                         ))
                     ) : (
