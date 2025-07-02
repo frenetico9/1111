@@ -133,8 +133,8 @@ async function initializeDatabase() {
         "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "lastMessage" TEXT,
         "lastMessageAt" TIMESTAMP WITH TIME ZONE,
-        "clientHasUnread" BOOLEAN DEFAULT FALSE,
-        "adminHasUnread" BOOLEAN DEFAULT FALSE
+        "unreadClientCount" INTEGER NOT NULL DEFAULT 0,
+        "unreadAdminCount" INTEGER NOT NULL DEFAULT 0
       );
     `;
 
@@ -182,7 +182,7 @@ async function initializeDatabase() {
       await pool.sql`
         INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours") VALUES
         ('admin1', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
-        ('admin2', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
+        ('admin2', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/ANaRyNn.png', 'https://i.imgur.com/gK7P6bQ.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
       `;
   
       await pool.sql`
@@ -221,8 +221,8 @@ async function initializeDatabase() {
       `;
 
       const { rows: chatRows } = await pool.sql`
-        INSERT INTO chats ("clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
-        ('client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true)
+        INSERT INTO chats ("clientId", "barbershopId", "lastMessage", "lastMessageAt", "unreadClientCount", "unreadAdminCount") VALUES
+        ('client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', 0, 1)
         RETURNING id;
       `;
       const seededChatId = chatRows[0].id;
@@ -1067,7 +1067,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
     await ensureDbInitialized();
     const { rows } = await pool.sql`
         SELECT 
-            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread",
+            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."unreadClientCount" as "unreadCount",
             bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
             u.name as "clientName"
         FROM chats c
@@ -1085,7 +1085,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
         barbershopLogoUrl: row.barbershopLogoUrl,
         barbershopPhone: row.barbershopPhone,
         lastMessage: row.lastMessage,
-        hasUnread: row.hasUnread,
+        unreadCount: Number(row.unreadCount),
         lastMessageAt: toOptionalIsoString(row.lastMessageAt)
     }));
 };
@@ -1094,7 +1094,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
     await ensureDbInitialized();
     const { rows } = await pool.sql`
         SELECT 
-            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread",
+            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."unreadAdminCount" as "unreadCount",
             bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl",
             u.name as "clientName", u.phone as "clientPhone"
         FROM chats c
@@ -1112,7 +1112,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
         barbershopName: row.barbershopName,
         barbershopLogoUrl: row.barbershopLogoUrl,
         lastMessage: row.lastMessage,
-        hasUnread: row.hasUnread,
+        unreadCount: Number(row.unreadCount),
         lastMessageAt: toOptionalIsoString(row.lastMessageAt)
     }));
 };
@@ -1121,9 +1121,9 @@ export const mockGetMessagesForChat = async (chatId: string, userId: string, use
     await ensureDbInitialized();
     // Mark messages as read for the user requesting them
     if (userType === 'client') {
-        await pool.sql`UPDATE chats SET "clientHasUnread" = false WHERE id = ${chatId}`;
-    } else {
-        await pool.sql`UPDATE chats SET "adminHasUnread" = false WHERE id = ${chatId}`;
+        await pool.sql`UPDATE chats SET "unreadClientCount" = 0 WHERE id = ${chatId} AND "clientId" = ${userId}`;
+    } else { // admin
+        await pool.sql`UPDATE chats SET "unreadAdminCount" = 0 WHERE id = ${chatId} AND "barbershopId" = ${userId}`;
     }
 
     const { rows } = await pool.sql`
@@ -1148,18 +1148,30 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
             UPDATE chats SET 
                 "lastMessage" = ${content},
                 "lastMessageAt" = ${newMessage.createdAt},
-                "adminHasUnread" = true
+                "unreadAdminCount" = "unreadAdminCount" + 1
             WHERE id = ${newMessage.chatId}
         `;
-    } else {
+    } else { // admin
         await pool.sql`
             UPDATE chats SET 
                 "lastMessage" = ${content},
                 "lastMessageAt" = ${newMessage.createdAt},
-                "clientHasUnread" = true
+                "unreadClientCount" = "unreadClientCount" + 1
             WHERE id = ${newMessage.chatId}
         `;
     }
 
     return newMessage;
+};
+
+export const mockGetTotalUnreadCount = async (userId: string, userType: UserType): Promise<number> => {
+    await ensureDbInitialized();
+    let query;
+    if (userType === 'client') {
+        query = pool.sql`SELECT SUM("unreadClientCount") as total FROM chats WHERE "clientId" = ${userId}`;
+    } else {
+        query = pool.sql`SELECT SUM("unreadAdminCount") as total FROM chats WHERE "barbershopId" = ${userId}`;
+    }
+    const { rows } = await query;
+    return Number(rows[0].total) || 0;
 };
