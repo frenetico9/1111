@@ -93,7 +93,7 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
 
 
 const ClientChatPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUnreadCount } = useAuth();
   const { addNotification } = useNotification();
   const { barbershopId: barbershopIdFromUrl } = useParams<{ barbershopId?: string }>();
   const navigate = useNavigate();
@@ -140,13 +140,14 @@ const ClientChatPage: React.FC = () => {
         const fetchedMessages = await mockGetMessagesForChat(conversation.id, user.id, UserType.CLIENT);
         setMessages(fetchedMessages);
         setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, hasUnread: false } : c));
+        await refreshUnreadCount(); // Refresh global unread count
     } catch (error) {
         console.error('Erro ao carregar mensagens:', error);
         addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
     } finally {
         setLoadingMessages(false);
     }
-  }, [user, navigate, addNotification, activeConversation]);
+  }, [user, navigate, addNotification, activeConversation, refreshUnreadCount]);
 
   const initiateNewConversation = useCallback(async (barbershopId: string) => {
     if (!user) return;
@@ -209,6 +210,7 @@ const ClientChatPage: React.FC = () => {
         setMessages(prev => [...prev, sentMessage]);
         setNewMessage('');
         fetchConversations(); // Refresh list to get last message update
+        await refreshUnreadCount();
     } catch (error) {
         console.error('Falha ao enviar mensagem:', error);
         addNotification({ message: 'Falha ao enviar mensagem.', type: 'error' });
