@@ -242,12 +242,6 @@ const AdminChatPage: React.FC = () => {
                     <>
                         <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
                             <h3 className="font-semibold text-text-dark">{activeConversation.clientName}</h3>
-                            {activeConversation.clientPhone && (
-                                <div className="flex items-center gap-1.5 bg-light-blue text-primary-blue px-3 py-1.5 rounded-lg text-sm font-medium">
-                                    <span className="material-icons-outlined text-base">phone</span>
-                                    <span>{activeConversation.clientPhone}</span>
-                                </div>
-                            )}
                         </div>
                         <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
                             {loadingMessages ? <LoadingSpinner /> : (
