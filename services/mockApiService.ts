@@ -32,11 +32,12 @@ async function initializeDatabase() {
   console.log('Ensuring database schema is up-to-date...');
 
   try {
+    // --- Create Tables ---
     // Make schema creation idempotent using "IF NOT EXISTS"
     await pool.sql`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
+        email TEXT NOT NULL,
         type TEXT NOT NULL,
         name TEXT,
         phone TEXT,
@@ -101,7 +102,7 @@ async function initializeDatabase() {
     await pool.sql`
       CREATE TABLE IF NOT EXISTS reviews (
         id TEXT PRIMARY KEY,
-        "appointmentId" TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+        "appointmentId" TEXT NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
         "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         rating INTEGER NOT NULL,
@@ -131,8 +132,7 @@ async function initializeDatabase() {
         "lastMessage" TEXT,
         "lastMessageAt" TIMESTAMP WITH TIME ZONE,
         "clientHasUnread" BOOLEAN DEFAULT FALSE,
-        "adminHasUnread" BOOLEAN DEFAULT FALSE,
-        UNIQUE("clientId", "barbershopId")
+        "adminHasUnread" BOOLEAN DEFAULT FALSE
       );
     `;
 
@@ -147,7 +147,31 @@ async function initializeDatabase() {
       );
     `;
 
-    console.log('Schema verification complete.');
+    console.log('Schema verification complete. Ensuring constraints...');
+
+    // --- Ensure Constraints ---
+    // This is more robust than relying on CREATE TABLE IF NOT EXISTS, which doesn't alter existing tables.
+    // We try to add constraints and catch the error if they already exist.
+    // "42710" is the code for "duplicate_object" in Postgres.
+    try {
+        await pool.sql`ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email)`;
+    } catch (error: any) {
+        if (error.code !== '42710') throw error;
+    }
+
+    try {
+        await pool.sql`ALTER TABLE reviews ADD CONSTRAINT reviews_appointmentid_key UNIQUE ("appointmentId")`;
+    } catch (error: any) {
+        if (error.code !== '42710') throw error;
+    }
+    
+    try {
+        await pool.sql`ALTER TABLE chats ADD CONSTRAINT chats_clientid_barbershopid_key UNIQUE ("clientId", "barbershopId")`;
+    } catch (error: any) {
+        if (error.code !== '42710') throw error;
+    }
+
+    console.log('Constraints check complete.');
 
     // Check if data needs to be seeded by looking for a specific seed entry.
     const { rows: seedCheck } = await pool.sql`SELECT id FROM users WHERE id = 'client1'`;
@@ -1025,16 +1049,25 @@ export const mockGetAvailableTimeSlots = async (
 
 export const mockCreateOrGetChat = async (clientId: string, barbershopId: string): Promise<string> => {
     await ensureDbInitialized();
-    const { rows: existing } = await pool.sql`SELECT id FROM chats WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId}`;
-    if (existing.length > 0) {
-        return existing[0].id;
-    }
-    const newChatId = generateId('chat');
+    
+    // Using ON CONFLICT makes the get-or-create operation atomic and prevents race conditions.
     await pool.sql`
         INSERT INTO chats (id, "clientId", "barbershopId", "lastMessageAt")
-        VALUES (${newChatId}, ${clientId}, ${barbershopId}, NOW())
+        VALUES (${generateId('chat')}, ${clientId}, ${barbershopId}, NOW())
+        ON CONFLICT ("clientId", "barbershopId") DO NOTHING;
     `;
-    return newChatId;
+    
+    // Now, whether it was just inserted or already existed, we can safely select the ID.
+    const { rows } = await pool.sql`
+        SELECT id FROM chats WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
+    `;
+    
+    if (rows.length === 0) {
+        // This case should not be reachable if foreign keys for clientId and barbershopId are valid.
+        throw new Error("Falha ao criar ou encontrar o chat. Verifique se os IDs de usuário são válidos.");
+    }
+    
+    return rows[0].id;
 };
 
 export const mockGetClientConversations = async (clientId: string): Promise<ChatConversation[]> => {
