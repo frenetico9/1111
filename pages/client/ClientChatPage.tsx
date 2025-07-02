@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -6,8 +7,7 @@ import {
   mockGetClientConversations,
   mockGetMessagesForChat,
   mockSendMessage,
-  mockCreateOrGetChat,
-  mockGetBarbershopProfile,
+  mockCreateOrGetConversation,
   mockDeleteChatForUser,
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -158,35 +158,49 @@ const ClientChatPage: React.FC = () => {
     } finally {
         setLoadingMessages(false);
     }
-  }, [user, navigate, addNotification, activeConversation, refreshUnreadCount]);
+  }, [user, navigate, addNotification, activeConversation?.id, refreshUnreadCount]);
 
   const initiateNewConversation = useCallback(async (barbershopId: string) => {
     if (!user) return;
+    setLoadingConversations(true); // Show a loading state on the conversation list
     try {
-        await mockCreateOrGetChat(user.id, barbershopId);
-        // After successfully creating/getting the chat, refresh the list.
-        await fetchConversations();
-        // The main useEffect will see the new conversation in the list and select it.
+        const newConversation = await mockCreateOrGetConversation(user.id, barbershopId);
+        
+        // Add the new conversation to the list locally so the useEffect can pick it up.
+        setConversations(prev => {
+            // Avoid duplicates if it somehow already exists
+            if (prev.find(c => c.id === newConversation.id)) {
+                return prev;
+            }
+            // Add to the top and re-sort by date just in case
+            const newList = [newConversation, ...prev];
+            newList.sort((a,b) => (b.lastMessageAt || '0').localeCompare(a.lastMessageAt || '0'));
+            return newList;
+        });
+        // The main useEffect will now find this conversation and select it on the next render.
     } catch (error) {
         console.error("Erro ao iniciar nova conversa:", error);
         addNotification({ message: "Erro ao iniciar nova conversa.", type: 'error' });
         navigate('/client/chat', { replace: true });
+    } finally {
+        setLoadingConversations(false);
     }
-  }, [user, addNotification, navigate, fetchConversations]);
+  }, [user, addNotification, navigate]);
 
   useEffect(() => {
     if (barbershopIdFromUrl && user && !loadingConversations) {
         const existingConvo = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
         if (existingConvo) {
+            // Only select if it's not already the active one
             if (activeConversation?.id !== existingConvo.id) {
                 handleSelectConversation(existingConvo);
             }
         } else {
-            // If not found after loading all conversations, it's safe to create it.
+            // If after loading all conversations it's still not found, it's a new one.
             initiateNewConversation(barbershopIdFromUrl);
         }
     }
-  }, [barbershopIdFromUrl, user, conversations, loadingConversations, handleSelectConversation, initiateNewConversation, activeConversation]);
+  }, [barbershopIdFromUrl, user, conversations, loadingConversations, handleSelectConversation, initiateNewConversation, activeConversation?.id]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
