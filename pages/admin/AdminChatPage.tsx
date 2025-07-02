@@ -70,7 +70,7 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
   const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
   const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
 
-  const formattedTime = new Date(message.createdAt).toLocaleTimeString('pt-BR', {
+  const formattedTime = parseISO(message.createdAt).toLocaleTimeString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     hour: '2-digit',
     minute: '2-digit',
