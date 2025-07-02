@@ -127,6 +127,7 @@ export interface ChatConversation {
   id: string; // chat id
   clientId: string;
   clientName: string;
+  clientPhone?: string;
   barbershopId: string;
   barbershopName: string;
   barbershopLogoUrl?: string;
