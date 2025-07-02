@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -137,12 +138,8 @@ const ClientChatPage: React.FC = () => {
     }
   }, [user, addNotification]);
 
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
-
   const handleSelectConversation = useCallback(async (conversation: ChatConversation) => {
-    if (!user || activeConversation?.id === conversation.id) return;
+    if (!user) return;
 
     navigate(`/client/chat/${conversation.barbershopId}`, { replace: true });
     setActiveConversation(conversation);
@@ -151,56 +148,62 @@ const ClientChatPage: React.FC = () => {
         const fetchedMessages = await mockGetMessagesForChat(conversation.id, user.id, UserType.CLIENT);
         setMessages(fetchedMessages);
         setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, hasUnread: false } : c));
-        await refreshUnreadCount(); // Refresh global unread count
+        await refreshUnreadCount();
     } catch (error) {
         console.error('Erro ao carregar mensagens:', error);
         addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
     } finally {
         setLoadingMessages(false);
     }
-  }, [user, navigate, addNotification, activeConversation?.id, refreshUnreadCount]);
-
-  const initiateNewConversation = useCallback(async (barbershopId: string) => {
-    if (!user) return;
-    setLoadingConversations(true); // Show a loading state on the conversation list
-    try {
-        const newConversation = await mockCreateOrGetConversation(user.id, barbershopId);
-        
-        // Add the new conversation to the list locally so the useEffect can pick it up.
-        setConversations(prev => {
-            // Avoid duplicates if it somehow already exists
-            if (prev.find(c => c.id === newConversation.id)) {
-                return prev;
-            }
-            // Add to the top and re-sort by date just in case
-            const newList = [newConversation, ...prev];
-            newList.sort((a,b) => (b.lastMessageAt || '0').localeCompare(a.lastMessageAt || '0'));
-            return newList;
-        });
-        // The main useEffect will now find this conversation and select it on the next render.
-    } catch (error) {
-        console.error("Erro ao iniciar nova conversa:", error);
-        addNotification({ message: "Erro ao iniciar nova conversa.", type: 'error' });
-        navigate('/client/chat', { replace: true });
-    } finally {
-        setLoadingConversations(false);
-    }
-  }, [user, addNotification, navigate]);
+  }, [user, navigate, addNotification, refreshUnreadCount]);
 
   useEffect(() => {
-    if (barbershopIdFromUrl && user && !loadingConversations) {
+    // Initial data load
+    fetchConversations();
+  }, [fetchConversations]);
+
+  useEffect(() => {
+    const handleUrlParam = async () => {
+        // Guard: Need URL param, user, and initial convos loaded
+        if (!barbershopIdFromUrl || !user || loadingConversations) {
+            return;
+        }
+
         const existingConvo = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
+
         if (existingConvo) {
-            // Only select if it's not already the active one
             if (activeConversation?.id !== existingConvo.id) {
                 handleSelectConversation(existingConvo);
             }
         } else {
-            // If after loading all conversations it's still not found, it's a new one.
-            initiateNewConversation(barbershopIdFromUrl);
+            // Not in list: create, then refetch the whole list to ensure state consistency.
+            // This is a robust way to handle creation without causing state loops.
+            setLoadingConversations(true); // Indicate activity on the list pane.
+            try {
+                await mockCreateOrGetConversation(user.id, barbershopIdFromUrl);
+                // The above ensures the chat exists. Now get the fresh list.
+                await fetchConversations(); // This will re-fetch and set loading to false in its finally block
+            } catch (error) {
+                console.error("Error initiating conversation:", error);
+                addNotification({ message: 'Falha ao iniciar a conversa.', type: 'error' });
+                setLoadingConversations(false); // Manually set false on error
+                navigate('/client/chat', { replace: true });
+            }
         }
-    }
-  }, [barbershopIdFromUrl, user, conversations, loadingConversations, handleSelectConversation, initiateNewConversation, activeConversation?.id]);
+    };
+
+    handleUrlParam();
+  }, [
+      barbershopIdFromUrl, 
+      user, 
+      loadingConversations, 
+      conversations, 
+      activeConversation?.id, 
+      handleSelectConversation, 
+      fetchConversations, 
+      addNotification, 
+      navigate
+  ]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -304,9 +307,13 @@ const ClientChatPage: React.FC = () => {
                 </>
             ) : (
                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
-                    <span className="material-icons-outlined text-6xl text-primary-blue/30 mb-4">chat</span>
-                    <h3 className="text-xl font-semibold text-gray-600">Selecione uma conversa</h3>
-                    <p className="text-sm text-gray-500 max-w-xs">Escolha uma conversa da lista ou encontre uma barbearia para iniciar um novo chat.</p>
+                    {loadingMessages || loadingConversations ? <LoadingSpinner label="Carregando conversa..." /> : (
+                         <>
+                            <span className="material-icons-outlined text-6xl text-primary-blue/30 mb-4">chat</span>
+                            <h3 className="text-xl font-semibold text-gray-600">Selecione uma conversa</h3>
+                            <p className="text-sm text-gray-500 max-w-xs">Escolha uma conversa da lista ou encontre uma barbearia para iniciar um novo chat.</p>
+                        </>
+                    )}
                 </div>
             )}
         </div>
