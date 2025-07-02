@@ -11,9 +11,7 @@ import {
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format } from 'date-fns/format';
-import { parseISO } from 'date-fns/parseISO';
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import { format, parseISO, formatDistance } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -34,7 +32,7 @@ const ConversationListItem: React.FC<{
         console.warn('Invalid date value received for formatting:', date);
         return '';
       }
-      return formatDistanceToNow(parsedDate, { addSuffix: true, locale: ptBR });
+      return formatDistance(parsedDate, new Date(), { addSuffix: true, locale: ptBR });
     } catch (error) {
       console.error('Error formatting date in ConversationListItem:', error);
       return ''; // Return empty string on error to prevent crashing
