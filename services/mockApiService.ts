@@ -1056,47 +1056,37 @@ export const mockGetMessagesForChat = async (chatId: string, readerId: string, r
 
 export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
   await ensureDbInitialized();
-  const client = await pool.connect();
-  try {
-    await client.sql`BEGIN`;
-    const createdAt = new Date().toISOString();
+  
+  const createdAt = new Date().toISOString();
 
-    // Insert the new message
-    const { rows: messageRows } = await client.sql`
-      INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
-      VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt})
-      RETURNING *;
-    `;
-    
-    // Update the parent chat conversation
-    if (senderType === UserType.CLIENT) {
-        await client.sql`
-          UPDATE chats
-          SET 
-            "lastMessage" = ${content},
-            "lastMessageAt" = ${createdAt},
-            "adminHasUnread" = TRUE
-          WHERE id = ${chatId};
-        `;
-    } else {
-        await client.sql`
-          UPDATE chats
-          SET 
-            "lastMessage" = ${content},
-            "lastMessageAt" = ${createdAt},
-            "clientHasUnread" = TRUE
-          WHERE id = ${chatId};
-        `;
-    }
-    
-    await client.sql`COMMIT`;
-    return mapToChatMessage(messageRows[0]);
-  } catch (e) {
-    await client.sql`ROLLBACK`;
-    throw e;
-  } finally {
-    client.release();
+  // Step 1: Insert the new message.
+  // Using pool.sql which handles connection pooling automatically and is more resilient in serverless environments.
+  const { rows: messageRows } = await pool.sql`
+    INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
+    VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt})
+    RETURNING *;
+  `;
+  
+  if (messageRows.length === 0) {
+    throw new Error("Failed to insert the message into the database.");
   }
+
+  // Step 2: Update the parent chat conversation.
+  if (senderType === UserType.CLIENT) {
+    await pool.sql`
+      UPDATE chats
+      SET "lastMessage" = ${content}, "lastMessageAt" = ${createdAt}, "adminHasUnread" = TRUE
+      WHERE id = ${chatId};
+    `;
+  } else { // senderType is ADMIN
+    await pool.sql`
+      UPDATE chats
+      SET "lastMessage" = ${content}, "lastMessageAt" = ${createdAt}, "clientHasUnread" = TRUE
+      WHERE id = ${chatId};
+    `;
+  }
+  
+  return mapToChatMessage(messageRows[0]);
 };
 
 export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
