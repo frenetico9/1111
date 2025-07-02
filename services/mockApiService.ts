@@ -1,3 +1,5 @@
+
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -385,16 +387,24 @@ const mapToReview = (row: any): Review => ({
     comment: row.comment,
     createdAt: toIsoString(row.createdAt),
     reply: row.reply,
-    replyAt: toOptionalIsoString(row.replyAt),
+    replyAt: toOptionalIsoString(row.replyAt)
 });
 
-const mapToSubscription = (row: any): BarbershopSubscription => ({
+const mapToBarbershopSubscription = (row: any): BarbershopSubscription => ({
     barbershopId: row.barbershopId,
     planId: row.planId,
     status: row.status,
     startDate: toIsoString(row.startDate),
     endDate: toOptionalIsoString(row.endDate),
-    nextBillingDate: toOptionalIsoString(row.nextBillingDate),
+    nextBillingDate: toOptionalIsoString(row.nextBillingDate)
+});
+
+const mapToBarbershopSearchResult = (row: any): BarbershopSearchResultItem => ({
+    ...mapToBarbershopProfile(row),
+    averageRating: Number(row.averageRating || 0),
+    reviewCount: Number(row.reviewCount || 0),
+    sampleServices: row.sampleServices || [],
+    subscriptionTier: row.subscriptionTier || SubscriptionPlanTier.FREE
 });
 
 const mapToChatMessage = (row: any): ChatMessage => ({
@@ -406,234 +416,142 @@ const mapToChatMessage = (row: any): ChatMessage => ({
   createdAt: toIsoString(row.createdAt),
 });
 
+// --- API Functions ---
 
-// --- Auth ---
+// --- User & Auth ---
 export const mockLogin = async (email: string, pass: string): Promise<User | null> => {
   await ensureDbInitialized();
-
-  const cleanedEmail = email.trim().toLowerCase();
-  const testAccounts = ['cliente@exemplo.com', 'admin@barbearia.com', 'vip@navalha.com'];
-  const isTestAccount = testAccounts.includes(cleanedEmail);
-
-  // Special handling for test accounts to make them resilient.
-  if (isTestAccount && pass === 'password123') {
-    const { rows } = await pool.sql`SELECT * FROM users WHERE email ILIKE ${cleanedEmail}`;
-    if (rows.length > 0) {
-      // Self-healing: If password in DB is different for a test account, reset it.
-      if (rows[0].password_hash !== 'password123') {
-        await pool.sql`UPDATE users SET password_hash = 'password123' WHERE id = ${rows[0].id}`;
-      }
-      return mapToUser(rows[0]);
-    }
+  const { rows } = await pool.sql`SELECT * FROM users WHERE email = ${email} AND password_hash = ${pass}`;
+  if (rows.length > 0) {
+    return mapToUser(rows[0]);
   }
+  return null;
+};
 
-  // Standard login for all other cases
-  const { rows } = await pool.sql`SELECT * FROM users WHERE email ILIKE ${cleanedEmail} AND password_hash = ${pass}`;
-  if (rows.length === 0) return null;
+export const mockLogout = () => {
+  // In a real app, this would invalidate a token on the server.
+  // For the mock, we just confirm it's "logged out".
+  return Promise.resolve(true);
+};
+
+export const mockSignupClient = async (name: string, email: string, phone: string, pass: string): Promise<User> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    INSERT INTO users (id, email, type, name, phone, password_hash)
+    VALUES (${email}, ${email}, 'client', ${name}, ${phone}, ${pass})
+    ON CONFLICT (email) DO NOTHING
+    RETURNING *;
+  `;
+  if (rows.length === 0) {
+    throw new Error('E-mail já cadastrado.');
+  }
   return mapToUser(rows[0]);
 };
 
-const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-export const mockSignupClient = async (name: string, email: string, phone: string, pass: string): Promise<User | null> => {
-    await ensureDbInitialized();
-    const { rows: existing } = await pool.sql`SELECT id FROM users WHERE email = ${email}`;
-    if (existing.length > 0) throw new Error('E-mail já cadastrado.');
+export const mockSignupBarbershop = async (barbershopName: string, responsible: string, email: string, phone: string, address: string, pass: string): Promise<User> => {
+  await ensureDbInitialized();
+  
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
     
-    const newUser: User = { id: generateId('client'), name, email, phone, type: UserType.CLIENT };
-    await pool.sql`
-        INSERT INTO users (id, name, email, phone, type, password_hash)
-        VALUES (${newUser.id}, ${name}, ${email}, ${phone}, 'client', ${pass})
+    // 1. Create the user
+    const { rows: userRows } = await client.sql`
+      INSERT INTO users (id, email, type, name, "barbershopName", phone, address, password_hash)
+      VALUES (${email}, ${email}, 'admin', ${responsible}, ${barbershopName}, ${phone}, ${address}, ${pass})
+      ON CONFLICT (email) DO NOTHING
+      RETURNING *;
     `;
-    return newUser;
-};
-
-export const mockSignupBarbershop = async (barbershopName: string, responsibleName: string, email: string, phone: string, address: string, pass: string): Promise<User | null> => {
-    await ensureDbInitialized();
-    const { rows: existing } = await pool.sql`SELECT id FROM users WHERE email = ${email}`;
-    if (existing.length > 0) throw new Error('E-mail já cadastrado.');
-    
-    const newAdminId = generateId('admin');
-    const newUser: User = { 
-        id: newAdminId, 
-        name: responsibleName, 
-        email, 
-        phone, 
-        type: UserType.ADMIN, 
-        barbershopName,
-        address
-    };
-
-    try {
-        // Perform the inserts sequentially. If one fails, the next ones won't execute.
-        await pool.sql`
-             INSERT INTO users (id, name, email, phone, type, "barbershopName", address, password_hash)
-             VALUES (${newAdminId}, ${responsibleName}, ${email}, ${phone}, 'admin', ${barbershopName}, ${address}, ${pass})`;
-
-        await pool.sql`
-             INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, "workingHours", "logoUrl", "coverImageUrl")
-             VALUES (${newAdminId}, ${barbershopName}, ${responsibleName}, ${email}, ${phone}, ${address}, ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}, ${`https://i.imgur.com/OViX73g.png`}, ${`https://i.imgur.com/gK7P6bQ.png`})`;
-        
-        await pool.sql`
-             INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate")
-             VALUES (${newAdminId}, 'free', 'active', NOW())`;
-        
-    } catch(e) {
-        console.error("Signup transaction-less operation failed", e);
-        // Attempt to clean up the user if it was created.
-        await pool.sql`DELETE FROM users WHERE id = ${newAdminId}`; // This might also fail, but it's a best effort.
-        throw new Error("Falha ao criar barbearia. A operação foi revertida.");
+    if (userRows.length === 0) {
+      throw new Error('E-mail já cadastrado.');
     }
-    
-    return newUser;
-};
+    const newUser = mapToUser(userRows[0]);
 
-export const mockLogout = async (): Promise<void> => {
-  return;
-};
-
-
-// --- Client Profile ---
-export const mockUpdateClientProfile = async (clientId: string, data: Partial<User>): Promise<boolean> => {
-    await ensureDbInitialized();
-    const { rowCount } = await pool.sql`
-        UPDATE users SET name = ${data.name}, phone = ${data.phone}, email = ${data.email}
-        WHERE id = ${clientId} AND type = 'client'
+    // 2. Create the barbershop profile
+    await client.sql`
+      INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours")
+      VALUES (${newUser.id}, ${barbershopName}, ${responsible}, ${email}, ${phone}, ${address}, '', null, null, ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)});
     `;
-    return rowCount > 0;
+    
+    // 3. Create a free subscription for the new barbershop
+    await client.sql`
+      INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate")
+      VALUES (${newUser.id}, 'free', 'active', NOW());
+    `;
+
+    await client.sql`COMMIT`;
+    return newUser;
+  } catch (e) {
+    await client.sql`ROLLBACK`;
+    throw e;
+  } finally {
+    client.release();
+  }
 };
 
-// --- Password Reset ---
+export const mockUpdateClientProfile = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone' | 'email'>>): Promise<boolean> => {
+  await ensureDbInitialized();
+  // In a real app, email change would trigger a verification flow.
+  const { rowCount } = await pool.sql`
+    UPDATE users 
+    SET name = ${profileData.name}, phone = ${profileData.phone}, email = ${profileData.email}
+    WHERE id = ${clientId} AND type = 'client';
+  `;
+  return rowCount > 0;
+};
+
+
 export const mockVerifyForgotPassword = async (name: string, email: string, phone: string): Promise<boolean> => {
     await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT id FROM users WHERE name ILIKE ${name} AND email ILIKE ${email} AND phone = ${phone}
-    `;
+    const { rows } = await pool.sql`SELECT id FROM users WHERE name=${name} AND email=${email} AND phone=${phone};`;
     return rows.length > 0;
-};
+}
 
-export const mockResetPassword = async (email: string, newPassword: string): Promise<boolean> => {
+export const mockResetPassword = async (email: string, newPass: string): Promise<boolean> => {
     await ensureDbInitialized();
-    const cleanedEmail = email.trim().toLowerCase();
-    
-    // For test accounts, we allow password change, but mockLogin will self-heal if 'password123' is used.
-    const { rowCount } = await pool.sql`
-        UPDATE users SET password_hash = ${newPassword} WHERE email ILIKE ${cleanedEmail}
-    `;
-    return rowCount > 0;
-};
-
-// --- Barbershop Profile & Subscription ---
-export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResultItem[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-      SELECT
-        p.*,
-        COALESCE(r.avg_rating, 0) AS "averageRating",
-        COALESCE(r.review_count, 0) AS "reviewCount",
-        s."planId" AS "subscriptionTier"
-      FROM barbershop_profiles p
-      LEFT JOIN (
-        SELECT
-          "barbershopId",
-          AVG(rating) as avg_rating,
-          COUNT(id) as review_count
-        FROM reviews
-        GROUP BY "barbershopId"
-      ) r ON p.id = r."barbershopId"
-      LEFT JOIN barbershop_subscriptions s ON p.id = s."barbershopId"
-    `;
-
-    const results: BarbershopSearchResultItem[] = [];
-    for(const row of rows) {
-        const { rows: servicesRows } = await pool.sql`
-            SELECT id, name, price FROM services 
-            WHERE "barbershopId" = ${row.id} AND "isActive" = true 
-            LIMIT 3
-        `;
-        results.push({
-            ...mapToBarbershopProfile(row),
-            averageRating: Number(row.averageRating),
-            reviewCount: Number(row.reviewCount),
-            sampleServices: servicesRows.map(s => ({id: s.id, name: s.name, price: Number(s.price)})),
-            subscriptionTier: row.subscriptionTier
-        });
+    // Prevent password change for test accounts for demo stability
+    if (email === 'cliente@exemplo.com' || email === 'admin@barbearia.com' || email === 'vip@navalha.com') {
+        throw new Error('Não é possível alterar a senha de contas de teste.');
     }
+    const { rowCount } = await pool.sql`UPDATE users SET password_hash = ${newPass} WHERE email = ${email}`;
+    return rowCount > 0;
+}
 
-    results.sort((a, b) => {
-        if (a.subscriptionTier === 'pro' && b.subscriptionTier !== 'pro') return -1;
-        if (a.subscriptionTier !== 'pro' && b.subscriptionTier === 'pro') return 1;
-        return b.averageRating - a.averageRating;
-    });
 
-    return results;
-};
-
+// --- Barbershop Profile & Settings ---
 export const mockGetBarbershopProfile = async (barbershopId: string): Promise<BarbershopProfile | null> => {
   await ensureDbInitialized();
   const { rows } = await pool.sql`SELECT * FROM barbershop_profiles WHERE id = ${barbershopId}`;
   return rows.length > 0 ? mapToBarbershopProfile(rows[0]) : null;
 };
 
-export const mockUpdateBarbershopProfile = async (barbershopId: string, data: Partial<BarbershopProfile>): Promise<boolean> => {
-    await ensureDbInitialized();
-    
-    try {
-        // Non-transactional update. Less safe but avoids pool.connect().
-        await pool.sql`
-            UPDATE barbershop_profiles SET
-                name = ${data.name},
-                "responsibleName" = ${data.responsibleName},
-                phone = ${data.phone},
-                address = ${data.address},
-                description = ${data.description},
-                "logoUrl" = ${data.logoUrl},
-                "coverImageUrl" = ${data.coverImageUrl},
-                "workingHours" = ${JSON.stringify(data.workingHours)}
-            WHERE id = ${barbershopId};
-        `;
-        
-        await pool.sql`
-            UPDATE users SET
-                "barbershopName" = ${data.name},
-                name = ${data.responsibleName},
-                phone = ${data.phone},
-                address = ${data.address}
-            WHERE id = ${barbershopId};
-        `;
-        
-        return true; // Both queries succeeded
-
-    } catch(e) {
-        console.error("Update barbershop profile failed", e);
-        // Data might be inconsistent if the first query succeeded and the second failed.
-        throw new Error("Falha ao atualizar o perfil da barbearia.");
-    }
-};
-
-export const mockGetBarbershopSubscription = async (barbershopId: string): Promise<BarbershopSubscription | null> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`SELECT * FROM barbershop_subscriptions WHERE "barbershopId" = ${barbershopId}`;
-    return rows.length > 0 ? mapToSubscription(rows[0]) : null;
-};
-
-export const mockUpdateBarbershopSubscription = async (barbershopId: string, planId: SubscriptionPlanTier): Promise<boolean> => {
-    await ensureDbInitialized();
-    const planDetails = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-    if (!planDetails) return false;
-
-    const nextBillingDate = planDetails.price > 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null;
-
-    const { rowCount } = await pool.sql`
-        INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate", "nextBillingDate")
-        VALUES (${barbershopId}, ${planId}, 'active', NOW(), ${nextBillingDate ? nextBillingDate.toISOString() : null})
-        ON CONFLICT ("barbershopId") DO UPDATE SET
-            "planId" = EXCLUDED."planId",
-            status = EXCLUDED.status,
-            "startDate" = CASE WHEN barbershop_subscriptions."planId" != EXCLUDED."planId" THEN EXCLUDED."startDate" ELSE barbershop_subscriptions."startDate" END,
-            "nextBillingDate" = EXCLUDED."nextBillingDate";
-    `;
-    return rowCount > 0;
+export const mockUpdateBarbershopProfile = async (barbershopId: string, profileData: Partial<BarbershopProfile>): Promise<boolean> => {
+  await ensureDbInitialized();
+  const { name, responsibleName, phone, address, description, logoUrl, coverImageUrl, workingHours } = profileData;
+  const { rowCount } = await pool.sql`
+    UPDATE barbershop_profiles
+    SET 
+      name = ${name}, 
+      "responsibleName" = ${responsibleName},
+      phone = ${phone},
+      address = ${address},
+      description = ${description},
+      "logoUrl" = ${logoUrl},
+      "coverImageUrl" = ${coverImageUrl},
+      "workingHours" = ${JSON.stringify(workingHours)}
+    WHERE id = ${barbershopId};
+  `;
+  // Also update user table which might hold some initial data
+   await pool.sql`
+    UPDATE users
+    SET 
+      name = ${responsibleName},
+      "barbershopName" = ${name},
+      phone = ${phone},
+      address = ${address}
+    WHERE id = ${barbershopId};
+  `;
+  return rowCount > 0;
 };
 
 // --- Services ---
@@ -642,550 +560,603 @@ export const mockGetServicesForBarbershop = async (barbershopId: string): Promis
   const { rows } = await pool.sql`SELECT * FROM services WHERE "barbershopId" = ${barbershopId}`;
   return rows.map(mapToService);
 };
+
 export const mockGetServiceById = async (serviceId: string): Promise<Service | null> => {
   await ensureDbInitialized();
   const { rows } = await pool.sql`SELECT * FROM services WHERE id = ${serviceId}`;
   return rows.length > 0 ? mapToService(rows[0]) : null;
-}
-export const mockAddService = async (serviceData: Omit<Service, 'id'>): Promise<Service> => {
+};
+
+export const mockAddService = async (service: Omit<Service, 'id'>): Promise<Service> => {
   await ensureDbInitialized();
-  const newService = { ...serviceData, id: generateId('service') };
-  await pool.sql`
+  const newId = `service_${Date.now()}`;
+  const { name, price, duration, isActive, description, barbershopId } = service;
+  const { rows } = await pool.sql`
     INSERT INTO services (id, "barbershopId", name, price, duration, "isActive", description)
-    VALUES (${newService.id}, ${newService.barbershopId}, ${newService.name}, ${newService.price}, ${newService.duration}, ${newService.isActive}, ${newService.description})
+    VALUES (${newId}, ${barbershopId}, ${name}, ${price}, ${duration}, ${isActive}, ${description})
+    RETURNING *;
   `;
-  return newService;
+  return mapToService(rows[0]);
 };
-export const mockUpdateService = async (serviceId: string, data: Partial<Service>): Promise<Service | null> => {
+
+export const mockUpdateService = async (serviceId: string, service: Partial<Omit<Service, 'id'>>): Promise<Service> => {
   await ensureDbInitialized();
-  const { rowCount } = await pool.sql`
-    UPDATE services SET
-        name = ${data.name},
-        price = ${data.price},
-        duration = ${data.duration},
-        "isActive" = ${data.isActive},
-        description = ${data.description}
+  const { name, price, duration, isActive, description } = service;
+  const { rows } = await pool.sql`
+    UPDATE services
+    SET name = ${name}, price = ${price}, duration = ${duration}, "isActive" = ${isActive}, description = ${description}
     WHERE id = ${serviceId}
+    RETURNING *;
   `;
-  if (rowCount === 0) return null;
-  return mockGetServiceById(serviceId);
+  return mapToService(rows[0]);
 };
+
 export const mockToggleServiceActive = async (serviceId: string, isActive: boolean): Promise<boolean> => {
   await ensureDbInitialized();
-  const { rowCount } = await pool.sql`UPDATE services SET "isActive" = ${isActive} WHERE id = ${serviceId}`;
+  const { rowCount } = await pool.sql`
+    UPDATE services SET "isActive" = ${isActive} WHERE id = ${serviceId};
+  `;
   return rowCount > 0;
 };
 
+
 // --- Barbers ---
 export const mockGetBarbersForBarbershop = async (barbershopId: string): Promise<Barber[]> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`SELECT * FROM barbers WHERE "barbershopId" = ${barbershopId}`;
-  return rows.map(mapToBarber);
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`SELECT * FROM barbers WHERE "barbershopId" = ${barbershopId}`;
+    return rows.map(mapToBarber);
 };
+
 export const mockGetBarbersForService = async (barbershopId: string, serviceId: string): Promise<Barber[]> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`
-    SELECT * FROM barbers 
-    WHERE "barbershopId" = ${barbershopId} AND ${serviceId} = ANY("assignedServices")
-  `;
-  return rows.map(mapToBarber);
-};
-export const mockAddBarber = async (barberData: Omit<Barber, 'id'>): Promise<Barber> => {
     await ensureDbInitialized();
-    const newBarber = { ...barberData, id: generateId('barber')};
-    const assignedServicesArray = `{${barberData.assignedServices.join(',')}}`;
-    await pool.sql`
+    const { rows } = await pool.sql`
+        SELECT * FROM barbers 
+        WHERE "barbershopId" = ${barbershopId} AND "assignedServices" @> ARRAY[${serviceId}]
+    `;
+    return rows.map(mapToBarber);
+}
+
+export const mockAddBarber = async (barber: Omit<Barber, 'id'>): Promise<Barber> => {
+    await ensureDbInitialized();
+    const newId = `barber_${Date.now()}`;
+    const { name, availableHours, assignedServices, barbershopId } = barber;
+    const { rows } = await pool.sql`
         INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices")
-        VALUES (${newBarber.id}, ${newBarber.barbershopId}, ${newBarber.name}, ${JSON.stringify(newBarber.availableHours)}, ${assignedServicesArray})
+        VALUES (${newId}, ${barbershopId}, ${name}, ${JSON.stringify(availableHours)}, ${`{${(assignedServices || []).join(',')}}`})
+        RETURNING *;
     `;
-    return newBarber;
+    return mapToBarber(rows[0]);
 };
-export const mockUpdateBarber = async (barberId: string, data: Partial<Barber>): Promise<Barber | null> => {
+
+export const mockUpdateBarber = async (barberId: string, barber: Partial<Omit<Barber, 'id'>>): Promise<Barber> => {
     await ensureDbInitialized();
-    const assignedServicesArray = data.assignedServices ? `{${data.assignedServices.join(',')}}` : null;
-    const { rowCount } = await pool.sql`
-        UPDATE barbers SET
-            name = ${data.name},
-            "availableHours" = ${JSON.stringify(data.availableHours)},
-            "assignedServices" = ${assignedServicesArray}
+    const { name, availableHours, assignedServices } = barber;
+    const { rows } = await pool.sql`
+        UPDATE barbers
+        SET name = ${name}, "availableHours" = ${JSON.stringify(availableHours)}, "assignedServices" = ${assignedServices ? `{${assignedServices.join(',')}}` : null}
         WHERE id = ${barberId}
+        RETURNING *;
     `;
-    if (rowCount === 0) return null;
-    const { rows } = await pool.sql`SELECT * from barbers where id = ${barberId}`;
-    return rows.length > 0 ? mapToBarber(rows[0]) : null;
+    return mapToBarber(rows[0]);
 };
+
 export const mockDeleteBarber = async (barberId: string): Promise<boolean> => {
     await ensureDbInitialized();
     const { rowCount } = await pool.sql`DELETE FROM barbers WHERE id = ${barberId}`;
     return rowCount > 0;
 };
 
-const getAppointmentQuery = (whereClause: string) => pool.sql`
-    SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-        a.date, a.time, a.status, a.notes, a."createdAt", 
-        c.name AS "clientName",
-        s.name AS "serviceName",
-        b.name AS "barberName",
-        bs.name AS "barbershopName"
-    FROM appointments a
-    JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
-    LEFT JOIN barbers b ON a."barberId" = b.id
-    LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
-    ${whereClause}
-`;
+// --- Clients (from Admin perspective) ---
+export const mockGetClientsForBarbershop = async (barbershopId: string): Promise<Partial<User>[]> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT DISTINCT u.id, u.name, u.email, u.phone FROM users u
+    JOIN appointments a ON u.id = a."clientId"
+    WHERE a."barbershopId" = ${barbershopId}
+    ORDER BY u.name;
+  `;
+  return rows.map(row => ({ id: row.id, name: row.name, email: row.email, phone: row.phone }));
+};
 
 // --- Appointments ---
 export const mockGetClientAppointments = async (clientId: string): Promise<Appointment[]> => {
   await ensureDbInitialized();
   const { rows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-        a.date, a.time, a.status, a.notes, a."createdAt", 
-        c.name AS "clientName",
-        s.name AS "serviceName",
-        b.name AS "barberName",
-        bs.name AS "barbershopName"
+        a.*,
+        u_client.name as "clientName",
+        bp.name as "barbershopName",
+        s.name as "serviceName",
+        b.name as "barberName"
     FROM appointments a
-    JOIN users c ON a."clientId" = c.id
+    JOIN users u_client ON a."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON a."barbershopId" = bp.id
     JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
-    LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a."clientId" = ${clientId}
+    ORDER BY a.date DESC, a.time DESC;
   `;
   return rows.map(mapToAppointment);
 };
+
 export const mockGetAdminAppointments = async (barbershopId: string): Promise<Appointment[]> => {
   await ensureDbInitialized();
   const { rows } = await pool.sql`
     SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-        a.date, a.time, a.status, a.notes, a."createdAt", 
-        c.name AS "clientName",
-        s.name AS "serviceName",
-        b.name AS "barberName",
-        bs.name AS "barbershopName"
+        a.*,
+        u_client.name as "clientName",
+        bp.name as "barbershopName",
+        s.name as "serviceName",
+        b.name as "barberName"
     FROM appointments a
-    JOIN users c ON a."clientId" = c.id
+    JOIN users u_client ON a."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON a."barbershopId" = bp.id
     JOIN services s ON a."serviceId" = s.id
     LEFT JOIN barbers b ON a."barberId" = b.id
-    LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
     WHERE a."barbershopId" = ${barbershopId}
+    ORDER BY a.date DESC, a.time DESC;
   `;
   return rows.map(mapToAppointment);
-};
-export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'barbershopName' | 'serviceName' | 'barberName'>): Promise<Appointment> => {
-  await ensureDbInitialized();
-  const newAppointment = { 
-    ...appointmentData, 
-    id: generateId('appt'), 
-    createdAt: new Date().toISOString()
-  };
-  await pool.sql`
-    INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt")
-    VALUES (
-        ${newAppointment.id}, 
-        ${newAppointment.clientId}, 
-        ${newAppointment.barbershopId}, 
-        ${newAppointment.serviceId}, 
-        ${newAppointment.barberId || null}, 
-        ${newAppointment.date}, 
-        ${newAppointment.time}, 
-        ${newAppointment.status}, 
-        ${newAppointment.notes}, 
-        ${newAppointment.createdAt}
-    )
-  `;
-  const { rows } = await pool.sql`
-    SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-        a.date, a.time, a.status, a.notes, a."createdAt", 
-        c.name AS "clientName",
-        s.name AS "serviceName",
-        b.name AS "barberName",
-        bs.name AS "barbershopName"
-    FROM appointments a
-    JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
-    LEFT JOIN barbers b ON a."barberId" = b.id
-    LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
-    WHERE a.id = ${newAppointment.id}
-  `;
-  return mapToAppointment(rows[0]);
-};
-
-export const mockUpdateAppointment = async (appointmentId: string, data: Partial<Appointment>): Promise<Appointment | null> => {
-  await ensureDbInitialized();
-  const { rowCount } = await pool.sql`
-    UPDATE appointments SET
-        "clientId" = ${data.clientId},
-        "serviceId" = ${data.serviceId},
-        "barberId" = ${data.barberId || null},
-        date = ${data.date},
-        time = ${data.time},
-        notes = ${data.notes}
-    WHERE id = ${appointmentId}
-  `;
-  if (rowCount === 0) return null;
-  const { rows } = await pool.sql`
-    SELECT 
-        a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-        a.date, a.time, a.status, a.notes, a."createdAt", 
-        c.name AS "clientName",
-        s.name AS "serviceName",
-        b.name AS "barberName",
-        bs.name AS "barbershopName"
-    FROM appointments a
-    JOIN users c ON a."clientId" = c.id
-    JOIN services s ON a."serviceId" = s.id
-    LEFT JOIN barbers b ON a."barberId" = b.id
-    LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
-    WHERE a.id = ${appointmentId}
-  `;
-  return rows.length > 0 ? mapToAppointment(rows[0]) : null;
-};
-
-export const mockCancelAppointment = async (appointmentId: string, userId: string, cancelledBy: 'client' | 'admin'): Promise<boolean> => {
-  await ensureDbInitialized();
-  const newStatus = cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_admin';
-  const { rowCount } = await pool.sql`
-    UPDATE appointments SET status = ${newStatus} WHERE id = ${appointmentId}
-  `;
-  return rowCount > 0;
-};
-export const mockCompleteAppointment = async (appointmentId: string): Promise<boolean> => {
-    await ensureDbInitialized();
-    const { rowCount } = await pool.sql`UPDATE appointments SET status = 'completed' WHERE id = ${appointmentId}`;
-    return rowCount > 0;
-};
-
-
-// --- Reviews ---
-export const mockGetReviewsForBarbershop = async (barbershopId: string): Promise<Review[]> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`
-    SELECT r.*, u.name as "clientName"
-    FROM reviews r
-    JOIN users u ON r."clientId" = u.id
-    WHERE r."barbershopId" = ${barbershopId}
-  `;
-  return rows.map(mapToReview);
-};
-export const mockGetReviewForAppointment = async (appointmentId: string): Promise<Review | null> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`
-    SELECT r.*, u.name as "clientName"
-    FROM reviews r
-    JOIN users u ON r."clientId" = u.id
-    WHERE r."appointmentId" = ${appointmentId}
-  `;
-  return rows.length > 0 ? mapToReview(rows[0]) : null;
-}
-export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt' | 'reply' | 'replyAt'>): Promise<Review> => {
-  await ensureDbInitialized();
-  const { rows: existing } = await pool.sql`SELECT id FROM reviews WHERE "appointmentId" = ${reviewData.appointmentId}`;
-  if (existing.length > 0) throw new Error("Avaliação para este agendamento já existe.");
-
-  const newReview = { ...reviewData, id: generateId('review'), createdAt: new Date().toISOString() };
-  await pool.sql`
-    INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt")
-    VALUES (${newReview.id}, ${newReview.appointmentId}, ${newReview.clientId}, ${newReview.barbershopId}, ${newReview.rating}, ${reviewData.comment}, ${newReview.createdAt})
-  `;
-  
-  const { rows } = await pool.sql`
-    SELECT r.*, u.name as "clientName"
-    FROM reviews r
-    JOIN users u ON r."clientId" = u.id
-    WHERE r.id = ${newReview.id}
-  `;
-  return mapToReview(rows[0]);
-};
-export const mockReplyToReview = async (reviewId: string, replyText: string, adminId: string): Promise<Review | null> => {
-    await ensureDbInitialized();
-    const { rowCount } = await pool.sql`
-        UPDATE reviews SET reply = ${replyText}, "replyAt" = NOW()
-        WHERE id = ${reviewId} AND "barbershopId" = ${adminId}
-    `;
-    if (rowCount === 0) return null;
-    const { rows } = await pool.sql`
-        SELECT r.*, u.name as "clientName"
-        FROM reviews r
-        JOIN users u ON r."clientId" = u.id
-        WHERE r.id = ${reviewId}
-    `;
-    return rows.length > 0 ? mapToReview(rows[0]) : null;
-};
-
-
-// --- Client Data for Admin ---
-export const mockGetClientsForBarbershop = async (barbershopId: string): Promise<Partial<User>[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT DISTINCT c.id, c.name, c.email, c.phone 
-        FROM users c
-        JOIN appointments a ON c.id = a."clientId"
-        WHERE a."barbershopId" = ${barbershopId} AND c.type = 'client'
-    `;
-    return rows.map(row => ({ id: row.id, name: row.name, email: row.email, phone: row.phone }));
 };
 
 export const mockGetAppointmentsForClientByBarbershop = async (clientId: string, barbershopId: string): Promise<Appointment[]> => {
     await ensureDbInitialized();
     const { rows } = await pool.sql`
-        SELECT 
-            a.id, a."clientId", a."barbershopId", a."serviceId", a."barberId",
-            a.date, a.time, a.status, a.notes, a."createdAt", 
-            c.name AS "clientName",
-            s.name AS "serviceName",
-            b.name AS "barberName",
-            bs.name AS "barbershopName"
-        FROM appointments a
-        JOIN users c ON a."clientId" = c.id
+        SELECT a.*, s.name as "serviceName", b.name as "barberName" FROM appointments a
         JOIN services s ON a."serviceId" = s.id
         LEFT JOIN barbers b ON a."barberId" = b.id
-        LEFT JOIN barbershop_profiles bs ON a."barbershopId" = bs.id
         WHERE a."clientId" = ${clientId} AND a."barbershopId" = ${barbershopId}
+        ORDER BY a.date DESC, a.time DESC;
     `;
     return rows.map(mapToAppointment);
-};
+}
 
-// --- Time Slot Generation ---
-export const mockGetAvailableTimeSlots = async (
-  barbershopId: string,
-  serviceDuration: number,
-  dateString: string,
-  barberId?: string | null
-): Promise<string[]> => {
+export const mockCancelAppointment = async (appointmentId: string, userId: string, cancelledBy: 'client' | 'admin'): Promise<boolean> => {
   await ensureDbInitialized();
-
-  const selectedDate = parseISO(dateString + 'T00:00:00Z');
-  const dayOfWeek = getDay(selectedDate);
-
-  const barbershopProfile = await mockGetBarbershopProfile(barbershopId);
-  if (!barbershopProfile) return [];
-  
-  const allBarbersInShop = await mockGetBarbersForBarbershop(barbershopId);
-  
-  let relevantBarbers: Barber[] = [];
-  if (barberId) {
-    const specificBarber = allBarbersInShop.find(b => b.id === barberId);
-    if (specificBarber) relevantBarbers.push(specificBarber);
-  } else {
-    relevantBarbers = allBarbersInShop;
-  }
-  
-  const shopWorkingHoursToday = barbershopProfile.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
-
-  const { rows: appointmentsOnDate } = await pool.sql`
-      SELECT a.time, a."barberId", s.duration
-      FROM appointments a
-      JOIN services s ON a."serviceId" = s.id
-      WHERE a."barbershopId" = ${barbershopId} AND a.date = ${dateString} AND a.status = 'scheduled'
+  const status = cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_admin';
+  // Security check: ensure the user cancelling is part of the appointment
+  const { rowCount } = await pool.sql`
+    UPDATE appointments SET status = ${status}
+    WHERE id = ${appointmentId} AND ("clientId" = ${userId} OR "barbershopId" = ${userId});
   `;
+  return rowCount > 0;
+};
 
-  let potentialSlots: string[] = [];
-  const addSlotsFromSchedule = (schedule: {start: string, end: string} | undefined) => {
-    if (!schedule) return;
-    const [startHour, startMinute] = schedule.start.split(':').map(Number);
-    const [endHour, endMinute] = schedule.end.split(':').map(Number);
-    let slotStart = set(selectedDate, { hours: startHour, minutes: startMinute, seconds: 0, milliseconds: 0 });
-    const dayEnd = set(selectedDate, { hours: endHour, minutes: endMinute, seconds: 0, milliseconds: 0 });
+export const mockCompleteAppointment = async (appointmentId: string): Promise<boolean> => {
+  await ensureDbInitialized();
+  const { rowCount } = await pool.sql`
+    UPDATE appointments SET status = 'completed'
+    WHERE id = ${appointmentId} AND status = 'scheduled';
+  `;
+  return rowCount > 0;
+};
 
-    while (isBefore(slotStart, dayEnd)) {
-      const slotEnd = addMinutes(slotStart, serviceDuration);
-      if (isBefore(slotEnd, dayEnd) || isEqual(slotEnd, dayEnd)) {
-        potentialSlots.push(format(slotStart, 'HH:mm'));
-      }
-      slotStart = addMinutes(slotStart, TIME_SLOTS_INTERVAL);
-    }
-  };
-  
-  const barberSchedules = relevantBarbers.map(b => b.availableHours.find(h => h.dayOfWeek === dayOfWeek)).filter(Boolean);
-  
-  if (barberSchedules.length > 0) {
-    barberSchedules.forEach(schedule => addSlotsFromSchedule(schedule as {start: string, end: string}));
-  } else if (shopWorkingHoursToday?.isOpen) {
-    addSlotsFromSchedule(shopWorkingHoursToday);
+export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'serviceName' | 'barberName' | 'barbershopName'>): Promise<Appointment> => {
+  await ensureDbInitialized();
+  const newId = `appt_${Date.now()}`;
+  const { clientId, barbershopId, serviceId, barberId, date, time, status, notes } = appointmentData;
+  const createdAt = new Date().toISOString();
+
+  // Basic validation: Check if time slot is still available
+  const existingAppt = await pool.sql`
+    SELECT id FROM appointments 
+    WHERE "barbershopId" = ${barbershopId} AND date = ${date} AND time = ${time} AND status = 'scheduled'
+  `;
+  if (existingAppt.rows.length > 0) {
+    throw new Error('Este horário não está mais disponível.');
   }
+
+  const { rows } = await pool.sql`
+    INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt")
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes}, ${createdAt})
+    RETURNING id;
+  `;
   
-  potentialSlots = [...new Set(potentialSlots)].sort();
-
-  const availableSlots = potentialSlots.filter(slot => {
-    const slotStart = parse(slot, 'HH:mm', selectedDate);
-    const slotEnd = addMinutes(slotStart, serviceDuration);
-
-    const relevantAppointments = barberId 
-        ? appointmentsOnDate.filter(app => app.barberId === barberId)
-        : appointmentsOnDate;
-
-    const isConflict = relevantAppointments.some(app => {
-      const appStart = parse(app.time, 'HH:mm', selectedDate);
-      const appEnd = addMinutes(appStart, app.duration);
-      return isBefore(slotStart, appEnd) && isBefore(appStart, slotEnd);
-    });
-
-    if(isConflict) return false;
-
-    if (!barberId) {
-        const barbersBookedCount = appointmentsOnDate.filter(app => {
-            const appStart = parse(app.time, 'HH:mm', selectedDate);
-            const appEnd = addMinutes(appStart, app.duration);
-            return isBefore(slotStart, appEnd) && isBefore(appStart, slotEnd);
-        }).length;
-        return allBarbersInShop.length > barbersBookedCount;
-    }
-
-    return true;
-  });
-  
-  const now = new Date();
-  return availableSlots
-    .filter(slot => {
-      if (isSameDay(selectedDate, startOfDay(now))) {
-        const slotTime = parse(slot, 'HH:mm', new Date());
-        return isBefore(now, slotTime);
-      }
-      return true;
-    });
+  // Refetch to get denormalized names
+  const { rows: fullAppt } = await pool.sql`
+    SELECT 
+        a.*,
+        u_client.name as "clientName",
+        bp.name as "barbershopName",
+        s.name as "serviceName",
+        b.name as "barberName"
+    FROM appointments a
+    JOIN users u_client ON a."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON a."barbershopId" = bp.id
+    JOIN services s ON a."serviceId" = s.id
+    LEFT JOIN barbers b ON a."barberId" = b.id
+    WHERE a.id = ${rows[0].id};
+  `;
+  return mapToAppointment(fullAppt[0]);
 };
 
-// --- CHAT API ---
-
-export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
+export const mockUpdateAppointment = async (appointmentId: string, appointmentData: Partial<Appointment>): Promise<Appointment> => {
     await ensureDbInitialized();
-    
-    let result;
-    if (userType === 'client') {
-        result = await pool.sql`UPDATE chats SET "deletedByClient" = true WHERE id = ${chatId}`;
-    } else if (userType === 'admin') {
-        result = await pool.sql`UPDATE chats SET "deletedByAdmin" = true WHERE id = ${chatId}`;
-    } else {
-        throw new Error("Invalid user type for chat deletion.");
-    }
-    
-    return result.rowCount > 0;
-};
-
-export const mockCreateOrGetChat = async (clientId: string, barbershopId: string): Promise<string> => {
-    await ensureDbInitialized();
-    
-    await pool.sql`
-        INSERT INTO chats ("clientId", "barbershopId")
-        VALUES (${clientId}, ${barbershopId})
-        ON CONFLICT ("clientId", "barbershopId") DO NOTHING;
+    const { clientId, serviceId, barberId, date, time, notes } = appointmentData;
+     const { rows } = await pool.sql`
+        UPDATE appointments
+        SET "clientId"=${clientId}, "serviceId"=${serviceId}, "barberId"=${barberId}, date=${date}, time=${time}, notes=${notes}
+        WHERE id = ${appointmentId}
+        RETURNING id;
+     `;
+     // Refetch to get denormalized names
+    const { rows: fullAppt } = await pool.sql`
+        SELECT a.*, u_client.name as "clientName", bp.name as "barbershopName", s.name as "serviceName", b.name as "barberName"
+        FROM appointments a
+        JOIN users u_client ON a."clientId" = u_client.id
+        JOIN barbershop_profiles bp ON a."barbershopId" = bp.id
+        JOIN services s ON a."serviceId" = s.id
+        LEFT JOIN barbers b ON a."barberId" = b.id
+        WHERE a.id = ${rows[0].id};
     `;
+    return mapToAppointment(fullAppt[0]);
+};
+
+
+export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDuration: number, dateStr: string, barberId: string | null): Promise<string[]> => {
+    await ensureDbInitialized();
+    const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+    const dayOfWeek = getDay(date);
+
+    // 1. Get barbershop's working hours for the given day
+    const profile = await mockGetBarbershopProfile(barbershopId);
+    const dayHours = profile?.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
+
+    if (!dayHours || !dayHours.isOpen) {
+        return [];
+    }
+
+    // 2. Determine the working hours to use (barber-specific or barbershop default)
+    let startWorkTimeStr = dayHours.start;
+    let endWorkTimeStr = dayHours.end;
+
+    if (barberId) {
+        const { rows: barberRows } = await pool.sql`SELECT "availableHours" FROM barbers WHERE id = ${barberId}`;
+        const barber = barberRows.length > 0 ? { availableHours: barberRows[0].availableHours } : null;
+        const barberDayHours = barber?.availableHours?.find((bh: any) => bh.dayOfWeek === dayOfWeek);
+        if (barberDayHours) {
+            startWorkTimeStr = barberDayHours.start;
+            endWorkTimeStr = barberDayHours.end;
+        }
+    }
     
+    // 3. Generate all possible slots
+    const allSlots: string[] = [];
+    let currentTime = parse(startWorkTimeStr, 'HH:mm', date);
+    const endTime = parse(endWorkTimeStr, 'HH:mm', date);
+    const now = new Date();
+
+    while (isBefore(currentTime, endTime)) {
+        const slotEndTime = addMinutes(currentTime, serviceDuration);
+        if (!isBefore(slotEndTime, endTime) && !isEqual(slotEndTime, endTime)) break; // Slot must finish within working hours
+
+        // Don't show slots in the past
+        if (!isSameDay(date, now) || isBefore(now, currentTime)) {
+             allSlots.push(format(currentTime, 'HH:mm'));
+        }
+        currentTime = addMinutes(currentTime, TIME_SLOTS_INTERVAL); // Next slot starts after interval
+    }
+
+    // 4. Get all booked appointments for that day and barber (if specified)
+    let query = `SELECT time FROM appointments WHERE "barbershopId" = $1 AND date = $2 AND status = 'scheduled'`;
+    const params: (string|null)[] = [barbershopId, dateStr];
+    if (barberId) {
+        query += ` AND "barberId" = $3`;
+        params.push(barberId);
+    }
+    const { rows: bookedAppointments } = await pool.query(query, params);
+    const bookedSlots = bookedAppointments.map(a => a.time);
+
+    // 5. Filter out booked slots
+    return allSlots.filter(slot => !bookedSlots.includes(slot));
+};
+
+
+// --- Reviews ---
+export const mockGetReviewsForBarbershop = async (barbershopId: string): Promise<Review[]> => {
+    await ensureDbInitialized();
     const { rows } = await pool.sql`
-        SELECT id FROM chats WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
+        SELECT r.*, u.name as "clientName" FROM reviews r
+        JOIN users u ON r."clientId" = u.id
+        WHERE r."barbershopId" = ${barbershopId}
+        ORDER BY r."createdAt" DESC;
     `;
-    
-    if (rows.length === 0) {
-        throw new Error("Falha ao criar ou encontrar o chat. Verifique se os IDs de usuário são válidos.");
-    }
-    
-    return rows[0].id;
+    return rows.map(mapToReview);
 };
+
+export const mockGetReviewForAppointment = async (appointmentId: string): Promise<Review | null> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`SELECT * FROM reviews WHERE "appointmentId" = ${appointmentId}`;
+    return rows.length > 0 ? mapToReview(rows[0]) : null;
+}
+
+export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>): Promise<Review> => {
+    await ensureDbInitialized();
+    const newId = `review_${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    const { appointmentId, clientId, clientName, barbershopId, rating, comment } = reviewData;
+
+    // Use ON CONFLICT to update an existing review for the same appointment
+    const { rows } = await pool.sql`
+        INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt")
+        VALUES (${newId}, ${appointmentId}, ${clientId}, ${barbershopId}, ${rating}, ${comment}, ${createdAt})
+        ON CONFLICT ("appointmentId") DO UPDATE 
+        SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, "createdAt" = EXCLUDED."createdAt"
+        RETURNING *;
+    `;
+    return mapToReview({ ...rows[0], clientName });
+};
+
+export const mockReplyToReview = async (reviewId: string, replyText: string, adminId: string): Promise<boolean> => {
+    await ensureDbInitialized();
+    // Extra check to ensure the replier is the owner of the barbershop
+    const { rowCount } = await pool.sql`
+        UPDATE reviews r
+        SET reply = ${replyText}, "replyAt" = NOW()
+        FROM appointments a
+        WHERE r.id = ${reviewId} AND r."appointmentId" = a.id AND a."barbershopId" = ${adminId};
+    `;
+    if (rowCount === 0) {
+        throw new Error('Permissão negada ou avaliação não encontrada.');
+    }
+    return true;
+};
+
+
+// --- Subscriptions ---
+export const mockGetBarbershopSubscription = async (barbershopId: string): Promise<BarbershopSubscription | null> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`SELECT * FROM barbershop_subscriptions WHERE "barbershopId" = ${barbershopId}`;
+    return rows.length > 0 ? mapToBarbershopSubscription(rows[0]) : null;
+};
+
+export const mockUpdateBarbershopSubscription = async (barbershopId: string, newPlanId: SubscriptionPlanTier): Promise<boolean> => {
+    await ensureDbInitialized();
+    const newPlan = SUBSCRIPTION_PLANS.find(p => p.id === newPlanId);
+    if (!newPlan) return false;
+
+    let query;
+    if (newPlan.price > 0) {
+        query = pool.sql`
+            UPDATE barbershop_subscriptions
+            SET "planId" = ${newPlanId}, status = 'active', "nextBillingDate" = NOW() + INTERVAL '1 month'
+            WHERE "barbershopId" = ${barbershopId};
+        `;
+    } else {
+        query = pool.sql`
+            UPDATE barbershop_subscriptions
+            SET "planId" = ${newPlanId}, status = 'active', "nextBillingDate" = NULL
+            WHERE "barbershopId" = ${barbershopId};
+        `;
+    }
+    const { rowCount } = await query;
+    return rowCount > 0;
+};
+
+
+// --- Public/Search ---
+export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResultItem[]> => {
+  await ensureDbInitialized();
+  // This is a more complex query that aggregates data.
+  const { rows } = await pool.sql`
+    WITH review_stats AS (
+      SELECT 
+        "barbershopId", 
+        AVG(rating) as "averageRating",
+        COUNT(id) as "reviewCount"
+      FROM reviews
+      GROUP BY "barbershopId"
+    ),
+    service_samples AS (
+      SELECT
+        "barbershopId",
+        json_agg(json_build_object('id', id, 'name', name, 'price', price)) as "sampleServices"
+      FROM (
+        SELECT 
+          s.*,
+          ROW_NUMBER() OVER(PARTITION BY s."barbershopId" ORDER BY s.price ASC) as rn
+        FROM services s
+        WHERE s."isActive" = true
+      ) as ranked_services
+      WHERE rn <= 3
+      GROUP BY "barbershopId"
+    )
+    SELECT 
+      bp.*,
+      COALESCE(rs."averageRating", 0) as "averageRating",
+      COALESCE(rs."reviewCount", 0) as "reviewCount",
+      ss."sampleServices",
+      sub."planId" as "subscriptionTier"
+    FROM barbershop_profiles bp
+    LEFT JOIN review_stats rs ON bp.id = rs."barbershopId"
+    LEFT JOIN service_samples ss ON bp.id = ss."barbershopId"
+    JOIN barbershop_subscriptions sub ON bp.id = sub."barbershopId"
+    ORDER BY sub."planId" DESC, "averageRating" DESC; -- PRO first, then by rating
+  `;
+  return rows.map(mapToBarbershopSearchResult);
+};
+
+// --- CHAT ---
 
 export const mockGetClientConversations = async (clientId: string): Promise<ChatConversation[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT 
-            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread",
-            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
-            u.name as "clientName"
-        FROM chats c
-        LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-        LEFT JOIN users u ON c."clientId" = u.id
-        WHERE c."clientId" = ${clientId} AND c."deletedByClient" = FALSE
-        ORDER BY c."lastMessageAt" DESC NULLS LAST
-    `;
-    return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
-        id: row.id,
-        clientId: row.clientId,
-        clientName: row.clientName,
-        clientPhone: row.clientPhone,
-        barbershopId: row.barbershopId,
-        barbershopName: row.barbershopName,
-        barbershopLogoUrl: row.barbershopLogoUrl,
-        barbershopPhone: row.barbershopPhone,
-        lastMessage: row.lastMessage,
-        hasUnread: row.hasUnread,
-        lastMessageAt: toOptionalIsoString(row.lastMessageAt)
-    }));
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT 
+      c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."clientHasUnread",
+      u_client.name as "clientName",
+      bp.name as "barbershopName",
+      bp."logoUrl" as "barbershopLogoUrl",
+      bp.phone as "barbershopPhone"
+    FROM chats c
+    JOIN users u_client ON c."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c."clientId" = ${clientId} AND c."deletedByClient" = FALSE
+    ORDER BY c."lastMessageAt" DESC NULLS LAST;
+  `;
+  return rows.map(row => ({
+    id: row.id,
+    clientId: row.clientId,
+    barbershopId: row.barbershopId,
+    clientName: row.clientName,
+    barbershopName: row.barbershopName,
+    barbershopLogoUrl: row.barbershopLogoUrl,
+    barbershopPhone: row.barbershopPhone,
+    lastMessage: row.lastMessage,
+    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+    hasUnread: row.clientHasUnread,
+  }));
 };
 
 export const mockGetAdminConversations = async (barbershopId: string): Promise<ChatConversation[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT 
-            c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread",
-            bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
-            u.name as "clientName", u.phone as "clientPhone"
-        FROM chats c
-        LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-        LEFT JOIN users u ON c."clientId" = u.id
-        WHERE c."barbershopId" = ${barbershopId} AND c."deletedByAdmin" = FALSE
-        ORDER BY c."lastMessageAt" DESC NULLS LAST
-    `;
-    return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
-        id: row.id,
-        clientId: row.clientId,
-        clientName: row.clientName,
-        clientPhone: row.clientPhone,
-        barbershopId: row.barbershopId,
-        barbershopName: row.barbershopName,
-        barbershopLogoUrl: row.barbershopLogoUrl,
-        barbershopPhone: row.barbershopPhone,
-        lastMessage: row.lastMessage,
-        hasUnread: row.hasUnread,
-        lastMessageAt: toOptionalIsoString(row.lastMessageAt)
-    }));
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT 
+      c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread",
+      u_client.name as "clientName",
+      u_client.phone as "clientPhone",
+      bp.name as "barbershopName"
+    FROM chats c
+    JOIN users u_client ON c."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c."barbershopId" = ${barbershopId} AND c."deletedByAdmin" = FALSE
+    ORDER BY c."lastMessageAt" DESC NULLS LAST;
+  `;
+  return rows.map(row => ({
+    id: row.id,
+    clientId: row.clientId,
+    barbershopId: row.barbershopId,
+    clientName: row.clientName,
+    clientPhone: row.clientPhone,
+    barbershopName: row.barbershopName,
+    lastMessage: row.lastMessage,
+    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+    hasUnread: row.adminHasUnread,
+  }));
 };
 
-export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<ChatMessage[]> => {
-    await ensureDbInitialized();
-    // Mark messages as read for the user requesting them
-    if (userType === 'client') {
-        await pool.sql`UPDATE chats SET "clientHasUnread" = false WHERE id = ${chatId}`;
-    } else {
-        await pool.sql`UPDATE chats SET "adminHasUnread" = false WHERE id = ${chatId}`;
-    }
+export const mockGetMessagesForChat = async (chatId: string, readerId: string, readerType: UserType): Promise<ChatMessage[]> => {
+  await ensureDbInitialized();
+  
+  // Mark messages as read for the current user
+  if (readerType === UserType.CLIENT) {
+    await pool.sql`UPDATE chats SET "clientHasUnread" = FALSE WHERE id = ${chatId}`;
+  } else {
+    await pool.sql`UPDATE chats SET "adminHasUnread" = FALSE WHERE id = ${chatId}`;
+  }
 
-    const { rows } = await pool.sql`
-        SELECT * FROM chat_messages WHERE "chatId" = ${chatId} ORDER BY "createdAt" ASC
-    `;
-    return rows.map(mapToChatMessage);
+  const { rows } = await pool.sql`
+    SELECT * FROM chat_messages 
+    WHERE "chatId" = ${chatId} 
+    ORDER BY "createdAt" ASC;
+  `;
+  return rows.map(mapToChatMessage);
 };
 
 export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
-    await ensureDbInitialized();
+  await ensureDbInitialized();
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
     const createdAt = new Date().toISOString();
 
-    const { rows } = await pool.sql`
-        INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
-        VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt})
-        RETURNING *
+    // Insert the new message
+    const { rows: messageRows } = await client.sql`
+      INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
+      VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt})
+      RETURNING *;
     `;
-    const newMessage = mapToChatMessage(rows[0]);
     
-    if (senderType === 'client') {
-        await pool.sql`
-            UPDATE chats SET 
-                "lastMessage" = ${content},
-                "lastMessageAt" = ${newMessage.createdAt},
-                "adminHasUnread" = true
-            WHERE id = ${newMessage.chatId}
+    // Update the parent chat conversation
+    if (senderType === UserType.CLIENT) {
+        await client.sql`
+          UPDATE chats
+          SET 
+            "lastMessage" = ${content},
+            "lastMessageAt" = ${createdAt},
+            "adminHasUnread" = TRUE
+          WHERE id = ${chatId};
         `;
     } else {
-        await pool.sql`
-            UPDATE chats SET 
-                "lastMessage" = ${content},
-                "lastMessageAt" = ${newMessage.createdAt},
-                "clientHasUnread" = true
-            WHERE id = ${newMessage.chatId}
+        await client.sql`
+          UPDATE chats
+          SET 
+            "lastMessage" = ${content},
+            "lastMessageAt" = ${createdAt},
+            "clientHasUnread" = TRUE
+          WHERE id = ${chatId};
         `;
     }
+    
+    await client.sql`COMMIT`;
+    return mapToChatMessage(messageRows[0]);
+  } catch (e) {
+    await client.sql`ROLLBACK`;
+    throw e;
+  } finally {
+    client.release();
+  }
+};
 
-    return newMessage;
+export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
+  await ensureDbInitialized();
+
+  // Step 1: Create or get the chat, and reset delete flags. This "un-deletes" the chat for both users.
+  const { rows: chatRows } = await pool.sql`
+    INSERT INTO chats ("clientId", "barbershopId", "deletedByClient", "deletedByAdmin")
+    VALUES (${clientId}, ${barbershopId}, FALSE, FALSE)
+    ON CONFLICT ("clientId", "barbershopId")
+    DO UPDATE SET "deletedByClient" = FALSE, "deletedByAdmin" = FALSE
+    RETURNING id;
+  `;
+  
+  const chatId = chatRows[0].id;
+  if (!chatId) {
+    throw new Error('Failed to create or find chat.');
+  }
+
+  // Step 2: Fetch the full conversation object for the newly created/found chat.
+  const { rows: convoRows } = await pool.sql`
+    SELECT 
+      c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."clientHasUnread",
+      u_client.name as "clientName",
+      bp.name as "barbershopName",
+      bp."logoUrl" as "barbershopLogoUrl",
+      bp.phone as "barbershopPhone"
+    FROM chats c
+    JOIN users u_client ON c."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c.id = ${chatId};
+  `;
+  
+  if (convoRows.length === 0) {
+    throw new Error("Could not retrieve the conversation after creating it.");
+  }
+
+  const row = convoRows[0];
+  // Map to ChatConversation. The 'hasUnread' field is specific to the client in this context.
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    barbershopId: row.barbershopId,
+    clientName: row.clientName,
+    barbershopName: row.barbershopName,
+    barbershopLogoUrl: row.barbershopLogoUrl,
+    barbershopPhone: row.barbershopPhone,
+    lastMessage: row.lastMessage,
+    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+    hasUnread: row.clientHasUnread,
+  };
+};
+
+export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
+  await ensureDbInitialized();
+  
+  let query;
+  if (userType === UserType.CLIENT) {
+      query = pool.sql`UPDATE chats SET "deletedByClient" = TRUE WHERE id = ${chatId};`;
+  } else {
+      query = pool.sql`UPDATE chats SET "deletedByAdmin" = TRUE WHERE id = ${chatId};`;
+  }
+  const { rowCount } = await query;
+  return rowCount > 0;
 };
