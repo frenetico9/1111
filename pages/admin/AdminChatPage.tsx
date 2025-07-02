@@ -89,7 +89,7 @@ const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = (
 };
 
 const AdminChatPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshUnreadCount } = useAuth();
     const { addNotification } = useNotification();
     const { clientId: clientIdFromUrl } = useParams<{ clientId?: string }>();
     const navigate = useNavigate();
@@ -140,13 +140,14 @@ const AdminChatPage: React.FC = () => {
             setMessages(fetchedMessages);
             // Mark as read locally
             setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, hasUnread: false } : c));
+            await refreshUnreadCount(); // Refresh global unread count
         } catch (error) {
             console.error('Erro ao carregar mensagens:', error);
             addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
         } finally {
             setLoadingMessages(false);
         }
-    }, [user, navigate, addNotification, activeConversation]);
+    }, [user, navigate, addNotification, activeConversation, refreshUnreadCount]);
 
 
     useEffect(() => {
@@ -170,6 +171,7 @@ const AdminChatPage: React.FC = () => {
             setNewMessage('');
             // Update conversation list
             fetchConversations();
+            await refreshUnreadCount();
         } catch (error) {
             console.error('Falha ao enviar mensagem:', error);
             addNotification({ message: 'Falha ao enviar mensagem.', type: 'error' });
