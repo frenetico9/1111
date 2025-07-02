@@ -136,7 +136,7 @@ const AdminChatPage: React.FC = () => {
     }, [fetchConversations]);
     
     const handleSelectConversation = useCallback(async (conversation: ChatConversation) => {
-        if (!user) return;
+        if (!user || activeConversation?.id === conversation.id) return;
         
         navigate(`/admin/chat/${conversation.clientId}`, { replace: true });
         setActiveConversation(conversation);
@@ -151,7 +151,7 @@ const AdminChatPage: React.FC = () => {
         } finally {
             setLoadingMessages(false);
         }
-    }, [user, navigate, addNotification, fetchConversations]);
+    }, [user, navigate, addNotification, activeConversation, fetchConversations]);
 
     useEffect(() => {
         if (clientIdFromUrl && conversations.length > 0) {

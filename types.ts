@@ -134,5 +134,5 @@ export interface ChatConversation {
   barbershopPhone?: string;
   lastMessage?: string;
   lastMessageAt?: string;
-  unreadCount: number; // For the current viewer
+  hasUnread: boolean; // For the current viewer
 }
