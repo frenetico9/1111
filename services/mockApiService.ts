@@ -1057,7 +1057,7 @@ export const mockGetClientConversations = async (clientId: string): Promise<Chat
         LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
         LEFT JOIN users u ON c."clientId" = u.id
         WHERE c."clientId" = ${clientId}
-        ORDER BY c."lastMessageAt" DESC
+        ORDER BY c."lastMessageAt" DESC NULLS LAST
     `;
     return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
         id: row.id,
@@ -1084,7 +1084,7 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
         LEFT JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
         LEFT JOIN users u ON c."clientId" = u.id
         WHERE c."barbershopId" = ${barbershopId}
-        ORDER BY c."lastMessageAt" DESC
+        ORDER BY c."lastMessageAt" DESC NULLS LAST
     `;
     return rows.filter(row => row.barbershopName && row.clientName).map(row => ({
         id: row.id,
