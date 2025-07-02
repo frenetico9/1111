@@ -32,12 +32,11 @@ async function initializeDatabase() {
   console.log('Ensuring database schema is up-to-date...');
 
   try {
-    // --- Create Tables ---
     // Make schema creation idempotent using "IF NOT EXISTS"
     await pool.sql`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
         type TEXT NOT NULL,
         name TEXT,
         phone TEXT,
@@ -102,7 +101,7 @@ async function initializeDatabase() {
     await pool.sql`
       CREATE TABLE IF NOT EXISTS reviews (
         id TEXT PRIMARY KEY,
-        "appointmentId" TEXT NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+        "appointmentId" TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
         "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         rating INTEGER NOT NULL,
@@ -132,7 +131,8 @@ async function initializeDatabase() {
         "lastMessage" TEXT,
         "lastMessageAt" TIMESTAMP WITH TIME ZONE,
         "clientHasUnread" BOOLEAN DEFAULT FALSE,
-        "adminHasUnread" BOOLEAN DEFAULT FALSE
+        "adminHasUnread" BOOLEAN DEFAULT FALSE,
+        UNIQUE("clientId", "barbershopId")
       );
     `;
 
@@ -147,31 +147,7 @@ async function initializeDatabase() {
       );
     `;
 
-    console.log('Schema verification complete. Ensuring constraints...');
-
-    // --- Ensure Constraints ---
-    // This is more robust than relying on CREATE TABLE IF NOT EXISTS, which doesn't alter existing tables.
-    // We try to add constraints and catch the error if they already exist.
-    // "42710" is the code for "duplicate_object" in Postgres.
-    try {
-        await pool.sql`ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email)`;
-    } catch (error: any) {
-        if (error.code !== '42710') throw error;
-    }
-
-    try {
-        await pool.sql`ALTER TABLE reviews ADD CONSTRAINT reviews_appointmentid_key UNIQUE ("appointmentId")`;
-    } catch (error: any) {
-        if (error.code !== '42710') throw error;
-    }
-    
-    try {
-        await pool.sql`ALTER TABLE chats ADD CONSTRAINT chats_clientid_barbershopid_key UNIQUE ("clientId", "barbershopId")`;
-    } catch (error: any) {
-        if (error.code !== '42710') throw error;
-    }
-
-    console.log('Constraints check complete.');
+    console.log('Schema verification complete.');
 
     // Check if data needs to be seeded by looking for a specific seed entry.
     const { rows: seedCheck } = await pool.sql`SELECT id FROM users WHERE id = 'client1'`;
