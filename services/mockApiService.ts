@@ -131,10 +131,24 @@ async function initializeDatabase() {
         "lastMessage" TEXT,
         "lastMessageAt" TIMESTAMP WITH TIME ZONE,
         "clientHasUnread" BOOLEAN DEFAULT FALSE,
-        "adminHasUnread" BOOLEAN DEFAULT FALSE,
-        UNIQUE("clientId", "barbershopId")
+        "adminHasUnread" BOOLEAN DEFAULT FALSE
       );
     `;
+
+    // Explicitly add the UNIQUE constraint to handle cases where the table was created without the constraint.
+    // This makes the initialization process more robust and ensures ON CONFLICT works as expected.
+    try {
+        await pool.sql`ALTER TABLE chats ADD CONSTRAINT chats_client_barbershop_unique UNIQUE ("clientId", "barbershopId");`;
+        console.log('Ensured UNIQUE constraint on chats("clientId", "barbershopId") exists.');
+    } catch (e: any) {
+        if (e.code === '42710' || e.message.includes('already exists')) {
+            // This is expected if the table and constraint were already created correctly. We can safely ignore this.
+        } else {
+            // Any other error should be re-thrown as it might indicate a more serious problem.
+            console.error("An unexpected error occurred while adding UNIQUE constraint to chats table:", e);
+            throw e;
+        }
+    }
 
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chat_messages (
