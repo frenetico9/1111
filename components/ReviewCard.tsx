@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { Review } from '../types';
 import StarRating from './StarRating';
 import Button from './Button';
-import { format } from 'date-fns/format';
-import { parseISO } from 'date-fns/parseISO';
-import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface ReviewCardProps {
   review: Review;
@@ -31,8 +28,26 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ review, isAdminView = false, on
     }
   };
 
-  const formattedDate = format(parseISO(review.createdAt), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
-  const replyDate = review.replyAt ? format(parseISO(review.replyAt), "dd/MM/yy HH:mm", { locale: ptBR }) : '';
+  const formatDateInBrasilia = (isoString?: string, options?: Intl.DateTimeFormatOptions): string => {
+    if (!isoString) return '';
+    try {
+        return new Date(isoString).toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            ...options,
+        });
+    } catch (e) {
+        console.error(`Failed to format date: ${isoString}`, e);
+        return 'Data inválida';
+    }
+  }
+
+  const formattedDate = review.createdAt 
+    ? `${formatDateInBrasilia(review.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })} às ${formatDateInBrasilia(review.createdAt, { hour: '2-digit', minute: '2-digit' })}`
+    : '';
+
+  const replyDate = review.replyAt 
+    ? formatDateInBrasilia(review.replyAt, { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <div className="p-5 rounded-lg shadow-lg border border-light-blue bg-white flex flex-col justify-between hover:shadow-xl transition-shadow">
