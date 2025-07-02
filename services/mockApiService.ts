@@ -1,5 +1,6 @@
 
 
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -1015,7 +1016,6 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
     SELECT 
       c.id, c."clientId", c."barbershopId", c."lastMessage", c."lastMessageAt", c."adminHasUnread",
       u_client.name as "clientName",
-      u_client.phone as "clientPhone",
       bp.name as "barbershopName"
     FROM chats c
     JOIN users u_client ON c."clientId" = u_client.id
@@ -1028,7 +1028,6 @@ export const mockGetAdminConversations = async (barbershopId: string): Promise<C
     clientId: row.clientId,
     barbershopId: row.barbershopId,
     clientName: row.clientName,
-    clientPhone: row.clientPhone,
     barbershopName: row.barbershopName,
     lastMessage: row.lastMessage,
     lastMessageAt: toOptionalIsoString(row.lastMessageAt),
