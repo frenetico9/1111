@@ -32,6 +32,9 @@ async function initializeDatabase() {
   console.log('Ensuring database schema is up-to-date...');
 
   try {
+    // Enable UUID generation if not already enabled
+    await pool.sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`;
+
     // Make schema creation idempotent using "IF NOT EXISTS"
     await pool.sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -125,7 +128,7 @@ async function initializeDatabase() {
 
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chats (
-        id TEXT PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "lastMessage" TEXT,
@@ -152,8 +155,8 @@ async function initializeDatabase() {
 
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chat_messages (
-        id TEXT PRIMARY KEY,
-        "chatId" TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
         "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "senderType" TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -217,14 +220,17 @@ async function initializeDatabase() {
         ('admin2', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
       `;
 
-      await pool.sql`
-        INSERT INTO chats (id, "clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
-        ('chat1', 'client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true);
+      const { rows: chatRows } = await pool.sql`
+        INSERT INTO chats ("clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
+        ('client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true)
+        RETURNING id;
       `;
+      const seededChatId = chatRows[0].id;
+
       await pool.sql`
-        INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt") VALUES
-        ('msg1', 'chat1', 'admin1', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
-        ('msg2', 'chat1', 'client1', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
+        INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt") VALUES
+        (${seededChatId}, 'admin1', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
+        (${seededChatId}, 'client1', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
       `;
       console.log('Data seeding complete.');
     } else {
@@ -1040,20 +1046,17 @@ export const mockGetAvailableTimeSlots = async (
 export const mockCreateOrGetChat = async (clientId: string, barbershopId: string): Promise<string> => {
     await ensureDbInitialized();
     
-    // Using ON CONFLICT makes the get-or-create operation atomic and prevents race conditions.
     await pool.sql`
-        INSERT INTO chats (id, "clientId", "barbershopId", "lastMessageAt")
-        VALUES (${generateId('chat')}, ${clientId}, ${barbershopId}, NOW())
+        INSERT INTO chats ("clientId", "barbershopId")
+        VALUES (${clientId}, ${barbershopId})
         ON CONFLICT ("clientId", "barbershopId") DO NOTHING;
     `;
     
-    // Now, whether it was just inserted or already existed, we can safely select the ID.
     const { rows } = await pool.sql`
         SELECT id FROM chats WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
     `;
     
     if (rows.length === 0) {
-        // This case should not be reachable if foreign keys for clientId and barbershopId are valid.
         throw new Error("Falha ao criar ou encontrar o chat. Verifique se os IDs de usuário são válidos.");
     }
     
@@ -1131,19 +1134,14 @@ export const mockGetMessagesForChat = async (chatId: string, userId: string, use
 
 export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
     await ensureDbInitialized();
-    const newMessage: ChatMessage = {
-        id: generateId('msg'),
-        chatId,
-        senderId,
-        senderType,
-        content,
-        createdAt: new Date().toISOString(),
-    };
+    const createdAt = new Date().toISOString();
 
-    await pool.sql`
-        INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt")
-        VALUES (${newMessage.id}, ${chatId}, ${senderId}, ${senderType}, ${content}, ${newMessage.createdAt})
+    const { rows } = await pool.sql`
+        INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
+        VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt})
+        RETURNING *
     `;
+    const newMessage = mapToChatMessage(rows[0]);
     
     if (senderType === 'client') {
         await pool.sql`
@@ -1151,7 +1149,7 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
                 "lastMessage" = ${content},
                 "lastMessageAt" = ${newMessage.createdAt},
                 "adminHasUnread" = true
-            WHERE id = ${chatId}
+            WHERE id = ${newMessage.chatId}
         `;
     } else {
         await pool.sql`
@@ -1159,7 +1157,7 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
                 "lastMessage" = ${content},
                 "lastMessageAt" = ${newMessage.createdAt},
                 "clientHasUnread" = true
-            WHERE id = ${chatId}
+            WHERE id = ${newMessage.chatId}
         `;
     }
 
