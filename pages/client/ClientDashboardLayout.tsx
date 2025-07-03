@@ -56,6 +56,7 @@ const ClientDashboardLayout: React.FC = () => {
       </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow">
         <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}><span>Meus Agendamentos</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/loyalty" iconName="card_giftcard" onClick={closeSidebar}><span>Fidelidade</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}><span>Meu Perfil</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}><span>Encontrar Barbearias</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>

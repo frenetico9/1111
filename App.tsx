@@ -25,6 +25,7 @@ import ClientAppointmentsPage from './pages/client/ClientAppointmentsPage';
 import ClientProfilePage from './pages/client/ClientProfilePage';
 import ClientFindBarbershopsPage from './pages/client/ClientFindBarbershopsPage';
 import ClientChatPage from './pages/client/ClientChatPage'; // New Import
+import ClientLoyaltyPage from './pages/client/ClientLoyaltyPage'; // New Import
 
 // Admin Pages & Layout
 import AdminDashboardLayout from './pages/admin/AdminDashboardLayout';
@@ -38,6 +39,7 @@ import AdminSubscriptionPage from './pages/admin/AdminSubscriptionPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage'; // New Import
 import AdminChatPage from './pages/admin/AdminChatPage'; // New Import
+import AdminFinancialPage from './pages/admin/AdminFinancialPage'; // New Import
 
 // Components
 import LgpdConsentModal from './components/LgpdConsentModal';
@@ -114,6 +116,7 @@ const App: React.FC = () => {
             <ReactRouterDOM.Route path="appointments" element={<ClientAppointmentsPage />} />
             <ReactRouterDOM.Route path="profile" element={<ClientProfilePage />} />
             <ReactRouterDOM.Route path="find-barbershops" element={<ClientFindBarbershopsPage />} />
+            <ReactRouterDOM.Route path="loyalty" element={<ClientLoyaltyPage />} />
             <ReactRouterDOM.Route path="chat" element={<ClientChatPage />} />
             <ReactRouterDOM.Route path="chat/:barbershopId" element={<ClientChatPage />} />
           </ReactRouterDOM.Route>
@@ -126,6 +129,7 @@ const App: React.FC = () => {
             <ReactRouterDOM.Route path="overview" element={<AdminOverviewPage />} />
             <ReactRouterDOM.Route path="reports" element={<AdminReportsPage />} />
             <ReactRouterDOM.Route path="appointments" element={<AdminAppointmentsPage />} />
+            <ReactRouterDOM.Route path="financial" element={<AdminFinancialPage />} />
             <ReactRouterDOM.Route path="services" element={<AdminServicesPage />} />
             <ReactRouterDOM.Route path="team" element={<AdminTeamPage />} />
             <ReactRouterDOM.Route path="clients" element={<AdminClientsPage />} />

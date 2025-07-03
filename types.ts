@@ -47,6 +47,7 @@ export interface Appointment {
   status: 'scheduled' | 'completed' | 'cancelled_by_client' | 'cancelled_by_admin';
   notes?: string;
   createdAt: string; // ISO date string
+  sourceAppointmentId?: string; // For recurring appointments
 }
 
 export interface Review {
@@ -135,4 +136,26 @@ export interface ChatConversation {
   lastMessage?: string;
   lastMessageAt?: string;
   hasUnread: boolean; // For the current viewer
+}
+
+// --- NEW TYPES ---
+
+// For Financial Module
+export interface FinancialTransaction {
+  id: string;
+  barbershopId: string;
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  paymentMethod?: 'cash' | 'card' | 'pix' | 'other'; // Optional for expenses
+  date: string; // YYYY-MM-DD
+  appointmentId?: string; // Optional link to an appointment
+}
+
+// For Loyalty Program
+export interface ClientLoyaltyStatus {
+  barbershopId: string;
+  barbershopName: string;
+  barbershopLogoUrl?: string;
+  completedCount: number;
 }

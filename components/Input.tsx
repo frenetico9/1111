@@ -1,13 +1,17 @@
-import React, { InputHTMLAttributes } from 'react';
+import React, { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, DetailedHTMLProps } from 'react';
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+type AllInputProps = InputHTMLAttributes<HTMLInputElement> & TextareaHTMLAttributes<HTMLTextAreaElement> & SelectHTMLAttributes<HTMLSelectElement>;
+
+interface InputProps extends Omit<AllInputProps, 'size'> {
   label?: string;
   error?: string;
   containerClassName?: string;
   leftIcon?: React.ReactNode;
+  type?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'search' | 'url' | 'date' | 'time' | 'textarea' | 'select';
+  children?: React.ReactNode; // For select options
 }
 
-const Input: React.FC<InputProps> = ({ label, name, error, type = 'text', containerClassName = '', className = '', leftIcon, ...props }) => {
+const Input: React.FC<InputProps> = ({ label, name, error, type = 'text', containerClassName = '', className = '', leftIcon, children, ...props }) => {
   const baseStyle = 'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-150 ease-in-out shadow-sm';
   const errorStyle = 'border-red-500 focus:ring-red-400 focus:border-red-500';
   const normalStyle = 'border-gray-300 hover:border-gray-400 focus:ring-primary-blue focus:border-primary-blue';
@@ -23,26 +27,44 @@ const Input: React.FC<InputProps> = ({ label, name, error, type = 'text', contai
     url: 'url',
     decimal: 'decimal',
   }[type as string] as React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  
+  const finalClassName = `${baseStyle} ${error ? errorStyle : normalStyle} ${props.disabled ? disabledStyle : ''} ${className}`;
+
+  const renderInput = () => {
+    if (type === 'textarea') {
+      return <textarea id={inputId} name={name} className={finalClassName} {...props as TextareaHTMLAttributes<HTMLTextAreaElement>} />;
+    }
+    if (type === 'select') {
+      return (
+        <select id={inputId} name={name} className={finalClassName} {...props as SelectHTMLAttributes<HTMLSelectElement>}>
+          {children}
+        </select>
+      );
+    }
+    return (
+      <input
+        id={inputId}
+        name={name}
+        type={type}
+        inputMode={derivedInputMode}
+        className={`${finalClassName} ${leftIcon ? 'pl-10' : ''}`}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${inputId}-error` : undefined}
+        {...props as InputHTMLAttributes<HTMLInputElement>}
+      />
+    );
+  };
 
   return (
     <div className={`mb-4 ${containerClassName}`}>
       {label && <label htmlFor={inputId} className="block text-sm font-medium text-text-dark mb-1">{label}</label>}
       <div className="relative">
-        {leftIcon && (
+        {leftIcon && type !== 'textarea' && type !== 'select' && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
             {leftIcon}
           </div>
         )}
-        <input
-          id={inputId}
-          name={name}
-          type={type}
-          inputMode={derivedInputMode}
-          className={`${baseStyle} ${error ? errorStyle : normalStyle} ${props.disabled ? disabledStyle : ''} ${leftIcon ? 'pl-10' : ''} ${className}`}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${inputId}-error` : undefined}
-          {...props}
-        />
+        {renderInput()}
       </div>
       {error && <p id={`${inputId}-error`} className="text-red-600 text-xs mt-1" role="alert">{error}</p>}
     </div>

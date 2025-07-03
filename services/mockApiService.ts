@@ -1,10 +1,11 @@
 
 
 
+
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage } from '../types';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
-import { addMinutes } from 'date-fns/addMinutes';
+import { addMinutes, addWeeks } from 'date-fns';
 import { format } from 'date-fns/format';
 import { getDay } from 'date-fns/getDay';
 import { isSameDay } from 'date-fns/isSameDay';
@@ -100,7 +101,8 @@ async function initializeDatabase() {
         time TEXT NOT NULL,
         status TEXT NOT NULL,
         notes TEXT,
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+        "sourceAppointmentId" TEXT
       );
     `;
 
@@ -175,6 +177,20 @@ async function initializeDatabase() {
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
       );
     `;
+    
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS financial_transactions (
+        id TEXT PRIMARY KEY,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        description TEXT NOT NULL,
+        "paymentMethod" TEXT,
+        date DATE NOT NULL,
+        "appointmentId" TEXT REFERENCES appointments(id) ON DELETE SET NULL
+      );
+    `;
+
 
     console.log('Schema verification complete.');
 
@@ -376,6 +392,7 @@ const mapToAppointment = (row: any): Appointment => ({
     status: row.status,
     notes: row.notes,
     createdAt: toIsoString(row.createdAt),
+    sourceAppointmentId: row.sourceAppointmentId,
 });
 
 const mapToReview = (row: any): Review => ({
@@ -415,6 +432,17 @@ const mapToChatMessage = (row: any): ChatMessage => ({
   senderType: row.senderType,
   content: row.content,
   createdAt: toIsoString(row.createdAt),
+});
+
+const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
+  id: row.id,
+  barbershopId: row.barbershopId,
+  type: row.type,
+  amount: Number(row.amount),
+  description: row.description,
+  paymentMethod: row.paymentMethod,
+  date: toYyyyMmDd(row.date),
+  appointmentId: row.appointmentId
 });
 
 // --- API Functions ---
@@ -735,7 +763,7 @@ export const mockCompleteAppointment = async (appointmentId: string): Promise<bo
 export const mockCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'serviceName' | 'barberName' | 'barbershopName'>): Promise<Appointment> => {
   await ensureDbInitialized();
   const newId = `appt_${Date.now()}`;
-  const { clientId, barbershopId, serviceId, barberId, date, time, status, notes } = appointmentData;
+  const { clientId, barbershopId, serviceId, barberId, date, time, status, notes, sourceAppointmentId } = appointmentData;
   const createdAt = new Date().toISOString();
 
   // Basic validation: Check if time slot is still available
@@ -748,8 +776,8 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
   }
 
   const { rows } = await pool.sql`
-    INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes}, ${createdAt})
+    INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes}, ${createdAt}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
@@ -840,7 +868,6 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
 
     // 4. Get all booked appointments for that day and barber (if specified)
     let query;
-    let params: (string | null)[];
 
     if (barberId) {
         query = pool.sql`SELECT time FROM appointments WHERE "barbershopId" = ${barbershopId} AND date = ${dateStr} AND status = 'scheduled' AND "barberId" = ${barberId}`;
@@ -1150,4 +1177,82 @@ export const mockDeleteChatForUser = async (chatId: string, userType: UserType):
   }
   const { rowCount } = await query;
   return rowCount > 0;
+};
+
+// --- NEW APIs ---
+
+// Financial Module
+export const mockGetFinancialTransactions = async (barbershopId: string, date: string): Promise<FinancialTransaction[]> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT * FROM financial_transactions 
+    WHERE "barbershopId" = ${barbershopId} AND date = ${date}
+    ORDER BY type;
+  `;
+  return rows.map(mapToFinancialTransaction);
+}
+
+export const mockAddFinancialTransaction = async (barbershopId: string, date: string, transaction: Omit<FinancialTransaction, 'id' | 'barbershopId' | 'date'>): Promise<FinancialTransaction> => {
+  await ensureDbInitialized();
+  const newId = `tx_${Date.now()}`;
+  const { rows } = await pool.sql`
+    INSERT INTO financial_transactions (id, "barbershopId", date, type, amount, description, "paymentMethod")
+    VALUES (${newId}, ${barbershopId}, ${date}, ${transaction.type}, ${transaction.amount}, ${transaction.description}, ${transaction.paymentMethod || null})
+    RETURNING *;
+  `;
+  return mapToFinancialTransaction(rows[0]);
+}
+
+// Loyalty Program
+export const mockGetClientLoyaltyStatus = async (clientId: string): Promise<ClientLoyaltyStatus[]> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT 
+      a."barbershopId",
+      bp.name as "barbershopName",
+      bp."logoUrl" as "barbershopLogoUrl",
+      COUNT(a.id) as "completedCount"
+    FROM appointments a
+    JOIN barbershop_profiles bp ON a."barbershopId" = bp.id
+    WHERE a."clientId" = ${clientId} AND a.status = 'completed'
+    GROUP BY a."barbershopId", bp.name, bp."logoUrl"
+    ORDER BY "completedCount" DESC;
+  `;
+  return rows.map(row => ({
+    barbershopId: row.barbershopId,
+    barbershopName: row.barbershopName,
+    barbershopLogoUrl: row.barbershopLogoUrl,
+    completedCount: parseInt(row.completedCount, 10),
+  }));
+}
+
+// Recurring Appointments
+export const mockCreateFutureAppointment = async (sourceAppointment: Appointment, weeksLater: number): Promise<Appointment> => {
+  await ensureDbInitialized();
+  const futureDate = addWeeks(parseISO(sourceAppointment.date), weeksLater);
+  const futureDateStr = format(futureDate, 'yyyy-MM-dd');
+
+  // Check if slot is available
+  const service = await mockGetServiceById(sourceAppointment.serviceId);
+  if (!service) throw new Error("Serviço original não encontrado.");
+
+  const availableSlots = await mockGetAvailableTimeSlots(
+    sourceAppointment.barbershopId,
+    service.duration,
+    futureDateStr,
+    sourceAppointment.barberId || null
+  );
+
+  if (!availableSlots.includes(sourceAppointment.time)) {
+    throw new Error(`O horário ${sourceAppointment.time} não está disponível no dia ${format(futureDate, 'dd/MM/yyyy')}.`);
+  }
+
+  // Create the new appointment
+  const newAppointmentData: Omit<Appointment, 'id' | 'createdAt' | 'clientName' | 'serviceName' | 'barberName' | 'barbershopName'> = {
+    ...sourceAppointment,
+    date: futureDateStr,
+    sourceAppointmentId: sourceAppointment.id,
+    status: 'scheduled',
+  };
+  return mockCreateAppointment(newAppointmentData);
 };
