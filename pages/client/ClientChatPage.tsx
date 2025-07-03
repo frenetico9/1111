@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -20,7 +19,6 @@ import { formatDistance } from 'date-fns/formatDistance';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import { NAVALHA_LOGO_URL } from '../../constants';
 
 
 const ConversationListItem: React.FC<{
@@ -52,7 +50,7 @@ const ConversationListItem: React.FC<{
       onClick={onClick}
     >
       <img
-        src={conversation.barbershopLogoUrl || NAVALHA_LOGO_URL}
+        src={conversation.barbershopLogoUrl || 'https://i.imgur.com/OViX73g.png'}
         alt={`${conversation.barbershopName} logo`}
         className="w-12 h-12 rounded-full mr-3 object-cover flex-shrink-0"
       />
