@@ -57,14 +57,14 @@ const Modal: React.FC<ModalProps> = ({
       aria-labelledby="modal-title"
     >
       <div 
-        className={`bg-white rounded-xl shadow-2xl w-full ${sizeClasses} flex flex-col max-h-[95vh] transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow`}
+        className={`bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full ${sizeClasses} flex flex-col max-h-[95vh] transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow`}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
       >
-        <header className="flex justify-between items-center p-5 border-b border-border-color">
+        <header className="flex justify-between items-center p-5 border-b border-border-color dark:border-gray-700">
           <h2 id="modal-title" className="text-xl font-semibold text-primary-blue">{title}</h2>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-primary-blue text-2xl p-1 rounded-full hover:bg-light-blue transition-colors"
+            className="text-gray-400 hover:text-primary-blue text-2xl p-1 rounded-full hover:bg-light-blue dark:hover:bg-gray-700 transition-colors"
             aria-label="Fechar modal"
           >
             &times;
@@ -74,7 +74,7 @@ const Modal: React.FC<ModalProps> = ({
           {children}
         </div>
         {footer && (
-          <footer className="p-5 border-t border-border-color flex justify-end space-x-3 bg-gray-50 rounded-b-xl">
+          <footer className="p-5 border-t border-border-color dark:border-gray-700 flex justify-end space-x-3 bg-gray-50 dark:bg-gray-900 rounded-b-xl">
             {footer}
           </footer>
         )}

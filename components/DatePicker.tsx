@@ -76,7 +76,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
   const canGoNext = !maxDate || isBefore(currentMonth, startOfMonth(maxDate));
 
   return (
-    <div className={`p-4 bg-white rounded-lg shadow-md border border-gray-200 w-full max-w-xs mx-auto ${className}`}>
+    <div className={`p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 w-full max-w-xs mx-auto ${className}`}>
       <div className="flex justify-between items-center mb-4">
         <Button onClick={handlePrevMonth} variant="ghost" size="sm" className="p-1.5" disabled={!canGoPrev} aria-label="Mês anterior">
             <ChevronLeftIcon />
@@ -88,7 +88,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
             <ChevronRightIcon />
         </Button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 dark:text-gray-400 mb-2">
         {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(dayAbbr => (
           <div key={dayAbbr} className="font-medium">{dayAbbr}</div>
         ))}
@@ -105,15 +105,15 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
           let dayClasses = `p-1.5 rounded-full text-sm focus:outline-none transition-colors duration-150 aspect-square flex items-center justify-center font-medium `;
           if (isDisabled) {
-            dayClasses += 'text-gray-300 cursor-not-allowed bg-gray-50';
+            dayClasses += 'text-gray-300 dark:text-gray-600 cursor-not-allowed bg-gray-50 dark:bg-gray-700/50';
           } else {
-            dayClasses += 'hover:bg-light-blue cursor-pointer ';
+            dayClasses += 'hover:bg-light-blue dark:hover:bg-gray-700 cursor-pointer ';
             if (isSelected) {
               dayClasses += 'bg-primary-blue text-white font-semibold shadow-md';
             } else if (isHighlighted) {
-              dayClasses += 'bg-green-100 text-green-700 font-medium ring-1 ring-green-300';
+              dayClasses += 'bg-green-100 text-green-700 font-medium ring-1 ring-green-300 dark:bg-green-900/50 dark:text-green-300 dark:ring-green-700';
             } else {
-              dayClasses += 'text-gray-700 hover:text-primary-blue';
+              dayClasses += 'text-gray-700 dark:text-gray-200 hover:text-primary-blue';
             }
           }
 

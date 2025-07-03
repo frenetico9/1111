@@ -1,2 +1,19 @@
 /* Você pode adicionar estilos globais personalizados aqui, se necessário. */
 /* Por enquanto, o Tailwind CSS está lidando com a maioria dos estilos globais via CDN no index.html ou classes de utilidade. */
+
+/* Dark Mode Styles for Recharts */
+.dark .recharts-text.recharts-cartesian-axis-tick-value {
+    @apply fill-gray-400;
+}
+.dark .recharts-legend-item-text {
+    @apply !text-gray-300;
+}
+.dark .recharts-tooltip-wrapper {
+    @apply !bg-gray-800/90 !border-gray-600 !backdrop-blur-sm;
+}
+.dark .recharts-tooltip-cursor {
+    @apply !fill-gray-500/30;
+}
+.dark .recharts-label {
+    @apply !fill-gray-300;
+}

@@ -39,15 +39,15 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     };
 
     return (
-        <div className="bg-white p-4 rounded-lg shadow-xl border border-light-blue overflow-x-auto">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl border border-light-blue dark:border-gray-700 overflow-x-auto">
             <div className="grid grid-cols-8 min-w-[1000px]">
                 {/* Time column header */}
-                <div className="sticky left-0 bg-white z-10 border-r border-b border-gray-200"></div>
+                <div className="sticky left-0 bg-white dark:bg-gray-800 z-10 border-r border-b border-gray-200 dark:border-gray-700"></div>
                 {/* Day headers */}
                 {days.map(day => (
-                    <div key={day.toString()} className="text-center p-2 border-b border-gray-200">
+                    <div key={day.toString()} className="text-center p-2 border-b border-gray-200 dark:border-gray-700">
                         <p className="text-sm font-semibold text-primary-blue capitalize">{format(day, 'E', { locale: ptBR })}</p>
-                        <p className="text-lg font-bold text-gray-700">{format(day, 'dd')}</p>
+                        <p className="text-lg font-bold text-gray-700 dark:text-gray-200">{format(day, 'dd')}</p>
                     </div>
                 ))}
 
@@ -55,7 +55,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                 {timeSlots.map(time => (
                     <React.Fragment key={time}>
                         {/* Time label column */}
-                        <div className="text-xs text-center text-gray-500 p-2 border-r border-t border-gray-200 sticky left-0 bg-white z-10">
+                        <div className="text-xs text-center text-gray-500 dark:text-gray-400 p-2 border-r border-t border-gray-200 dark:border-gray-700 sticky left-0 bg-white dark:bg-gray-800 z-10">
                             {time}
                         </div>
                         {/* Appointment slots for each day */}
@@ -64,7 +64,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                             return (
                                 <div
                                     key={`${day.toString()}-${time}`}
-                                    className="border-t border-r border-gray-200 p-1 min-h-[60px] relative transition-colors hover:bg-light-blue/50"
+                                    className="border-t border-r border-gray-200 dark:border-gray-700 p-1 min-h-[60px] relative transition-colors hover:bg-light-blue/50 dark:hover:bg-gray-700/50"
                                     onClick={() => slotAppointments.length === 0 && onEmptySlotClick(format(day, 'yyyy-MM-dd'), time)}
                                     role="button"
                                     aria-label={`Agendamentos para ${format(day, 'dd/MM')} às ${time}`}

@@ -37,12 +37,12 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   const getStatusColor = (status: Appointment['status']) => {
     switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-primary-blue border-primary-blue';
-      case 'completed': return 'bg-green-100 text-green-700 border-green-700';
+      case 'scheduled': return 'bg-blue-100 text-primary-blue border-primary-blue dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-500';
+      case 'completed': return 'bg-green-100 text-green-700 border-green-700 dark:bg-green-900/50 dark:text-green-300 dark:border-green-600';
       case 'cancelled_by_client':
       case 'cancelled_by_admin': 
-        return 'bg-red-100 text-red-700 border-red-700';
-      default: return 'bg-gray-100 text-gray-700 border-gray-700';
+        return 'bg-red-100 text-red-700 border-red-700 dark:bg-red-900/50 dark:text-red-300 dark:border-red-600';
+      default: return 'bg-gray-100 text-gray-700 border-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500';
     }
   };
 
@@ -56,30 +56,30 @@ const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const formattedTime = appointment.time;
 
   return (
-    <div className="p-5 rounded-lg shadow-xl border border-light-blue bg-white flex flex-col justify-between hover:shadow-2xl transition-shadow">
+    <div className="p-5 rounded-lg shadow-xl border border-light-blue dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col justify-between hover:shadow-2xl transition-shadow">
       <div>
         <div className="flex justify-between items-start mb-3">
           <div>
             <h3 className="text-lg font-semibold text-primary-blue leading-tight" title={appointment.serviceName}>{appointment.serviceName}</h3>
-            {userType === UserType.ADMIN && <p className="text-xs text-gray-600">Cliente: {appointment.clientName || 'N/A'}</p>}
-            {userType === UserType.CLIENT && appointment.barbershopName && <p className="text-xs text-gray-600">Barbearia: {appointment.barbershopName}</p>}
-            {appointment.barberName && <p className="text-xs text-gray-600">Barbeiro: {appointment.barberName}</p>}
+            {userType === UserType.ADMIN && <p className="text-xs text-gray-600 dark:text-gray-400">Cliente: {appointment.clientName || 'N/A'}</p>}
+            {userType === UserType.CLIENT && appointment.barbershopName && <p className="text-xs text-gray-600 dark:text-gray-400">Barbearia: {appointment.barbershopName}</p>}
+            {appointment.barberName && <p className="text-xs text-gray-600 dark:text-gray-400">Barbeiro: {appointment.barberName}</p>}
           </div>
           <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusColor(appointment.status)}`}>
             {getStatusLabel(appointment.status)}
           </span>
         </div>
         
-        <div className="text-sm text-gray-700 space-y-1 mb-3">
+        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1 mb-3">
           <p><span className="material-icons-outlined text-sm mr-1 align-bottom">calendar_today</span> {formattedDate}</p>
           <p><span className="material-icons-outlined text-sm mr-1 align-bottom">schedule</span> {formattedTime}</p>
         </div>
         
-        {appointment.notes && <p className="text-xs text-gray-500 italic mb-3 bg-gray-50 p-2 rounded">Obs: {appointment.notes}</p>}
+        {appointment.notes && <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-3 bg-gray-50 dark:bg-gray-700/50 p-2 rounded">Obs: {appointment.notes}</p>}
       </div>
 
       {(canCancel || canReschedule || canComplete || canReview) && (
-        <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
+        <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
           {canCancel && onCancel && (
             <Button onClick={() => onCancel(appointment.id)} variant="danger" size="sm">
               <span className="material-icons-outlined text-sm mr-1">cancel</span>Cancelar

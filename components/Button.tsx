@@ -28,16 +28,16 @@ const Button: React.FC<ButtonProps> = ({
       variantStyle = 'bg-primary-blue text-white hover:bg-primary-blue-dark focus:ring-primary-blue';
       break;
     case 'secondary':
-      variantStyle = 'bg-gray-200 text-text-dark hover:bg-gray-300 focus:ring-gray-400';
+      variantStyle = 'bg-gray-200 text-text-dark hover:bg-gray-300 focus:ring-gray-400 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 dark:focus:ring-gray-500';
       break;
     case 'danger':
       variantStyle = 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500';
       break;
     case 'outline':
-      variantStyle = 'bg-transparent text-primary-blue border-2 border-primary-blue hover:bg-light-blue focus:ring-primary-blue';
+      variantStyle = 'bg-transparent text-primary-blue border-2 border-primary-blue hover:bg-light-blue focus:ring-primary-blue dark:hover:bg-primary-blue/20';
       break;
     case 'ghost':
-      variantStyle = 'bg-transparent text-primary-blue hover:bg-light-blue focus:ring-primary-blue shadow-none';
+      variantStyle = 'bg-transparent text-primary-blue hover:bg-light-blue focus:ring-primary-blue shadow-none dark:hover:bg-primary-blue/20';
       break;
   }
 

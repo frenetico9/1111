@@ -17,11 +17,11 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   slotsPerRow,
 }) => {
   if (loading) {
-     return <p className="text-center text-gray-500 my-4 p-4 bg-gray-50 rounded-lg">Carregando horários...</p>;
+     return <p className="text-center text-gray-500 dark:text-gray-400 my-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">Carregando horários...</p>;
   }
 
   if (!availableSlots || availableSlots.length === 0) {
-    return <p className="text-center text-gray-500 my-4 p-4 bg-gray-50 rounded-lg">Nenhum horário disponível para esta data/seleção.</p>;
+    return <p className="text-center text-gray-500 dark:text-gray-400 my-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">Nenhum horário disponível para esta data/seleção.</p>;
   }
   
   const gridClasses = {
@@ -32,7 +32,7 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({
   const gridClass = slotsPerRow ? gridClasses[slotsPerRow] : 'grid-cols-3 sm:grid-cols-4';
 
   return (
-    <div className={`grid ${gridClass} gap-2 p-3 bg-gray-50 rounded-lg shadow-sm max-h-60 overflow-y-auto`}>
+    <div className={`grid ${gridClass} gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg shadow-sm max-h-60 overflow-y-auto`}>
       {availableSlots.map(slot => (
         <Button
           key={slot}

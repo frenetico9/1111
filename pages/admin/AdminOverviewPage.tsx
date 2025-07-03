@@ -18,15 +18,15 @@ import { PRIMARY_BLUE } from '../../constants';
 const StatCard: React.FC<{ title: string; value: string | number; iconName?: string, description?: string, to?: string }> = 
 ({ title, value, iconName, description, to }) => {
   const content = (
-    <div className="bg-white p-4 sm:p-5 rounded-xl shadow-lg border border-light-blue hover:shadow-xl transition-shadow h-full flex flex-col justify-between">
+    <div className="bg-white dark:bg-gray-800 p-4 sm:p-5 rounded-xl shadow-lg border border-light-blue dark:border-gray-700 hover:shadow-xl transition-shadow h-full flex flex-col justify-between">
       <div>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-base sm:text-lg font-semibold text-primary-blue">{title}</h3>
           {iconName && <span className="material-icons-outlined text-2xl text-primary-blue opacity-70">{iconName}</span>}
         </div>
-        <p className="text-2xl sm:text-3xl font-bold text-gray-800">{value}</p>
+        <p className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">{value}</p>
       </div>
-      {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
+      {description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
     </div>
   );
   return to ? <ReactRouterDOM.Link to={to} className="block h-full">{content}</ReactRouterDOM.Link> : <div className="h-full">{content}</div>;
@@ -138,20 +138,20 @@ const AdminOverviewPage: React.FC = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue">
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue dark:border-gray-700">
           <h2 className="text-lg sm:text-xl font-semibold text-primary-blue mb-4">Agendamentos Concluídos (Últimos 7 Dias)</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={appointmentsLast7DaysChartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" fontSize={12} />
-              <YAxis allowDecimals={false} fontSize={12} />
-              <Tooltip formatter={(value: number) => [`${value} agendamentos`, "Agendamentos"]}/>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200 dark:stroke-gray-700"/>
+              <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} className="dark:fill-gray-400" />
+              <YAxis allowDecimals={false} fontSize={12} tickLine={false} axisLine={false} className="dark:fill-gray-400" />
+              <Tooltip cursor={{fill: 'rgba(0, 0, 0, 0.1)'}} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(4px)', border: '1px solid #ccc', borderRadius: '0.5rem' }} labelStyle={{ color: '#333' }}/>
               <Legend wrapperStyle={{fontSize: "12px"}}/>
               <Bar dataKey="Agendamentos" fill={PRIMARY_BLUE} name="Concluídos" barSize={20} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue">
+        <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue dark:border-gray-700">
           <h2 className="text-lg sm:text-xl font-semibold text-primary-blue mb-4">Distribuição de Status dos Agendamentos</h2>
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
@@ -171,7 +171,7 @@ const AdminOverviewPage: React.FC = () => {
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                         ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(4px)', border: '1px solid #ccc', borderRadius: '0.5rem' }} labelStyle={{ color: '#333' }} />
                     <Legend wrapperStyle={{fontSize: "12px"}}/>
                 </PieChart>
             </ResponsiveContainer>
@@ -179,7 +179,7 @@ const AdminOverviewPage: React.FC = () => {
       </div>
 
        {/* Quick Actions */}
-      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue">
+      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue dark:border-gray-700">
         <h2 className="text-lg sm:text-xl font-semibold text-primary-blue mb-4">Ações Rápidas</h2>
         <div className="flex flex-wrap gap-3">
           <ReactRouterDOM.Link to="/admin/appointments"><Button variant="primary" leftIcon={<span className="material-icons-outlined">event</span>}>Ver Agendamentos</Button></ReactRouterDOM.Link>

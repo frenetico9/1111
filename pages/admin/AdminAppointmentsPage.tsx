@@ -223,9 +223,9 @@ const AdminAppointmentsPage: React.FC = () => {
         <Button onClick={() => openUpsertModal()} variant="primary" leftIcon={<span className="material-icons-outlined">add</span>}>Novo Agendamento</Button>
       </div>
 
-      <div className="mb-6 p-4 bg-white rounded-lg shadow-md flex flex-wrap gap-4 items-center border border-light-blue">
+      <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-wrap gap-4 items-center border border-light-blue dark:border-gray-700">
         <div className="flex-grow">
-          <label className="block text-xs font-medium text-gray-700">Visualização</label>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Visualização</label>
           <div className="flex items-center rounded-md shadow-sm mt-1">
             <Button size="sm" variant={view === 'calendar' ? 'primary' : 'outline'} onClick={() => setView('calendar')} className="rounded-r-none !px-3">Calendário</Button>
             <Button size="sm" variant={view === 'list' ? 'primary' : 'outline'} onClick={() => setView('list')} className="rounded-l-none !px-3">Lista</Button>
@@ -234,12 +234,12 @@ const AdminAppointmentsPage: React.FC = () => {
         
         {view === 'list' && <>
           <div>
-            <label htmlFor="filterDate" className="block text-xs font-medium text-gray-700">Filtrar por Data:</label>
+            <label htmlFor="filterDate" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Filtrar por Data:</label>
             <Input type="date" id="filterDate" name="filterDate" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} containerClassName="mb-0" className="mt-1 text-sm py-2"/>
           </div>
           <div>
-            <label htmlFor="filterStatus" className="block text-xs font-medium text-gray-700">Filtrar por Status:</label>
-            <select id="filterStatus" name="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm">
+            <label htmlFor="filterStatus" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Filtrar por Status:</label>
+            <select id="filterStatus" name="filterStatus" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="mt-1 block w-full p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue text-sm dark:text-white">
               <option value="all">Todos</option>
               <option value="scheduled">Agendado</option>
               <option value="completed">Concluído</option>
@@ -253,7 +253,7 @@ const AdminAppointmentsPage: React.FC = () => {
         {view === 'calendar' && (
             <div className="flex-grow flex items-end justify-center gap-2">
                  <Button onClick={() => setCurrentDate(subDays(currentDate, 7))} variant="outline" size="sm">&lt; Semana</Button>
-                 <span className="text-center font-semibold text-gray-700">{weekLabel}</span>
+                 <span className="text-center font-semibold text-gray-700 dark:text-gray-200">{weekLabel}</span>
                  <Button onClick={() => setCurrentDate(addDays(currentDate, 7))} variant="outline" size="sm">Semana &gt;</Button>
             </div>
         )}
@@ -261,10 +261,10 @@ const AdminAppointmentsPage: React.FC = () => {
       
       {view === 'list' ? (
         filteredAppointments.length === 0 ? (
-          <div className="text-center py-10 bg-white shadow-md rounded-lg">
+          <div className="text-center py-10 bg-white dark:bg-gray-800 shadow-md rounded-lg">
             <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">event_busy</span>
-            <p className="text-xl text-gray-600 mb-4">Nenhum agendamento encontrado.</p>
-            <p className="text-sm text-gray-500">Tente ajustar os filtros ou adicione um novo agendamento.</p>
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">Nenhum agendamento encontrado.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Tente ajustar os filtros ou adicione um novo agendamento.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -290,7 +290,7 @@ const AdminAppointmentsPage: React.FC = () => {
       {/* Modals */}
       <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Confirmar Cancelamento" footer={<><Button variant="secondary" onClick={() => setShowCancelModal(false)} disabled={isSubmittingForm}>Voltar</Button><Button variant="danger" onClick={handleCancelAppointment} isLoading={isSubmittingForm}>Confirmar</Button></>}>
         <p>Tem certeza que deseja cancelar este agendamento?</p>
-        {selectedAppointment && <p className="text-sm mt-1">Serviço: {selectedAppointment.serviceName} para {selectedAppointment.clientName}</p>}
+        {selectedAppointment && <p className="text-sm mt-1 text-text-light dark:text-gray-400">Serviço: {selectedAppointment.serviceName} para {selectedAppointment.clientName}</p>}
       </Modal>
 
       <Modal isOpen={showUpsertModal} onClose={() => setShowUpsertModal(false)} title={isEditing ? "Editar Agendamento" : "Novo Agendamento"} size="lg">

@@ -37,9 +37,9 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   if (fullPage) {
     return (
-      <div className={`fixed inset-0 flex flex-col justify-center items-center bg-white bg-opacity-75 z-[1000] ${className}`}>
+      <div className={`fixed inset-0 flex flex-col justify-center items-center bg-white bg-opacity-75 dark:bg-dark-bg dark:bg-opacity-80 z-[1000] ${className}`}>
         {spinner}
-        {label && <p className={`mt-3 text-sm ${color}`}>{label}</p>}
+        {label && <p className={`mt-3 text-sm ${color} dark:text-gray-200`}>{label}</p>}
       </div>
     );
   }
@@ -47,7 +47,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return (
     <div className={`flex flex-col justify-center items-center ${className}`}>
       {spinner}
-      {label && size !== 'xs' && size !== 'sm' && <p className={`mt-2 text-xs ${color}`}>{label}</p>}
+      {label && size !== 'xs' && size !== 'sm' && <p className={`mt-2 text-xs ${color} dark:text-gray-300`}>{label}</p>}
     </div>
   );
 };

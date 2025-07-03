@@ -20,7 +20,7 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
       `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-150 ease-in-out text-sm font-medium group
        ${isActive 
           ? 'bg-primary-blue text-white shadow-md' 
-          : 'text-text-dark hover:bg-light-blue hover:text-primary-blue'
+          : 'text-text-dark dark:text-gray-200 hover:bg-light-blue dark:hover:bg-gray-700 hover:text-primary-blue'
        }`
     }
   >
@@ -44,14 +44,14 @@ const ClientDashboardLayout: React.FC = () => {
   const closeSidebar = () => setSidebarOpen(false);
 
   const SidebarContent = () => (
-    <aside className="w-60 bg-white shadow-lg p-4 space-y-2 flex flex-col h-screen">
-      <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue group">
+    <aside className="w-60 bg-white dark:bg-gray-800 shadow-lg p-4 space-y-2 flex flex-col h-screen">
+      <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue dark:border-gray-700 group">
         <div className="bg-primary-blue rounded-full p-2 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center group-hover:opacity-80 transition-opacity flex-shrink-0">
           <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
         </div>
         <div>
           <h2 className="text-base md:text-lg font-bold text-primary-blue group-hover:opacity-80 transition-opacity leading-tight">Cliente</h2>
-          {user && <p className="text-xs text-text-light truncate max-w-[120px]">{user.name || user.email}</p>}
+          {user && <p className="text-xs text-text-light dark:text-gray-400 truncate max-w-[120px]">{user.name || user.email}</p>}
         </div>
       </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow">
@@ -68,7 +68,7 @@ const ClientDashboardLayout: React.FC = () => {
           )}
         </ClientSidebarLink>
       </nav>
-      <div className="mt-auto pt-4 border-t border-light-blue">
+      <div className="mt-auto pt-4 border-t border-light-blue dark:border-gray-700">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">
           <span className="material-icons-outlined text-sm mr-1">logout</span>Sair
          </Button>
@@ -77,7 +77,7 @@ const ClientDashboardLayout: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-dark-bg">
       {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" onClick={closeSidebar}></div>}
 
@@ -87,7 +87,7 @@ const ClientDashboardLayout: React.FC = () => {
       </div>
 
       <div className="flex-1 flex flex-col">
-        <header className="md:hidden bg-white shadow-sm p-2 sticky top-0 z-20 border-b border-light-blue flex justify-between items-center">
+        <header className="md:hidden bg-white dark:bg-gray-800 shadow-sm p-2 sticky top-0 z-20 border-b border-light-blue dark:border-gray-700 flex justify-between items-center">
             <button className="p-2 text-gray-500 rounded-md" onClick={() => setSidebarOpen(true)}>
                 <span className="material-icons-outlined">menu</span>
             </button>
