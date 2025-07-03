@@ -86,6 +86,7 @@ export const DEFAULT_BARBERSHOP_WORKING_HOURS: BarbershopProfile['workingHours']
 export const MIN_PASSWORD_LENGTH = 6;
 
 export const DF_CITIES: string[] = [
+  // Cidades/RAs
   'Águas Claras',
   'Arapoanga',
   'Arniqueira',
@@ -120,6 +121,14 @@ export const DF_CITIES: string[] = [
   'Taguatinga',
   'Varjão',
   'Vicente Pires',
+  // Bairros/Setores Habitacionais
+  'Itapoã Parque',
+  'Jardins Mangueiral',
+  'Noroeste',
+  'Setor O',
+  'Setor Habitacional Taquari',
+  'Setor Habitacional Tororó',
+  'Vila Planalto',
   // Cidades do Entorno
   'Águas Lindas de Goiás',
   'Cidade Ocidental',
