@@ -82,7 +82,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <ReactRouterDOM.HashRouter>
+    <ReactRouterDOM.BrowserRouter>
       <ScrollToTop />
       {showLgpdModal && <LgpdConsentModal onAccept={handleLgpdAccept} />}
       <NotificationContainer />
@@ -146,7 +146,7 @@ const App: React.FC = () => {
             <ReactRouterDOM.Route path="*" element={<NotFoundPage />} />
         </ReactRouterDOM.Route>
       </ReactRouterDOM.Routes>
-    </ReactRouterDOM.HashRouter>
+    </ReactRouterDOM.BrowserRouter>
   );
 };
 
