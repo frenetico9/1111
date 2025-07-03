@@ -88,26 +88,22 @@ const App: React.FC = () => {
       <NotificationContainer />
       <ReactRouterDOM.Routes>
         {/* Public Routes with General Layout */}
-        <ReactRouterDOM.Route element={<Layout><ReactRouterDOM.Outlet /></Layout>}>
-          <ReactRouterDOM.Route path="/" element={<HomePage />} />
-          <ReactRouterDOM.Route path="/login" element={<LoginPage />} />
-          <ReactRouterDOM.Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <ReactRouterDOM.Route path="/signup/client" element={<ClientSignupPage />} />
-          <ReactRouterDOM.Route path="/signup/barbershop" element={<BarbershopSignupPage />} />
-          <ReactRouterDOM.Route path="/features" element={<FeaturesPage />} />
-          <ReactRouterDOM.Route path="/plans" element={<PlansPage />} />
-          <ReactRouterDOM.Route path="/contact" element={<ContactPage />} />
-          <ReactRouterDOM.Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <ReactRouterDOM.Route path="/terms-of-use" element={<TermsOfUsePage />} />
-          <ReactRouterDOM.Route path="/cookie-policy" element={<CookiePolicyPage />} />
-          <ReactRouterDOM.Route path="/barbershop/:barbershopId" element={<BarbershopPublicPage />} />
+        <ReactRouterDOM.Route path="/" element={<Layout />}>
+          <ReactRouterDOM.Route index element={<HomePage />} />
+          <ReactRouterDOM.Route path="login" element={<LoginPage />} />
+          <ReactRouterDOM.Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <ReactRouterDOM.Route path="signup/client" element={<ClientSignupPage />} />
+          <ReactRouterDOM.Route path="signup/barbershop" element={<BarbershopSignupPage />} />
+          <ReactRouterDOM.Route path="features" element={<FeaturesPage />} />
+          <ReactRouterDOM.Route path="plans" element={<PlansPage />} />
+          <ReactRouterDOM.Route path="contact" element={<ContactPage />} />
+          <ReactRouterDOM.Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+          <ReactRouterDOM.Route path="terms-of-use" element={<TermsOfUsePage />} />
+          <ReactRouterDOM.Route path="cookie-policy" element={<CookiePolicyPage />} />
+          <ReactRouterDOM.Route path="barbershop/:barbershopId" element={<BarbershopPublicPage />} />
+          <ReactRouterDOM.Route path="barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
+          <ReactRouterDOM.Route path="*" element={<NotFoundPage />} />
         </ReactRouterDOM.Route>
-        
-        {/* Booking page needs the public layout but is behind the /barbershop/:id route */}
-        <ReactRouterDOM.Route element={<Layout><ReactRouterDOM.Outlet /></Layout>}>
-             <ReactRouterDOM.Route path="/barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
-        </ReactRouterDOM.Route>
-
 
         {/* Client Routes - Dashboard has its own layout */}
         <ReactRouterDOM.Route element={<ProtectedRoute allowedRoles={['client']} />}>
@@ -141,10 +137,6 @@ const App: React.FC = () => {
           </ReactRouterDOM.Route>
         </ReactRouterDOM.Route>
         
-        {/* Fallback for unmatched routes within general layout */}
-        <ReactRouterDOM.Route element={<Layout><ReactRouterDOM.Outlet /></Layout>}>
-            <ReactRouterDOM.Route path="*" element={<NotFoundPage />} />
-        </ReactRouterDOM.Route>
       </ReactRouterDOM.Routes>
     </ReactRouterDOM.BrowserRouter>
   );
