@@ -9,7 +9,7 @@ const urlsToCache = [
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap',
   'https://fonts.googleapis.com/icon?family=Material+Icons+Outlined',
-  'https://i.imgur.com/eSjAXXA.png' // Logo
+  'https://i.imgur.com/OViX73g.png' // Logo
 ];
 
 // Install: Open cache and add app shell files
