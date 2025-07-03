@@ -101,7 +101,7 @@ const BarbershopSignupPage: React.FC = () => {
               disabled={isSubmitting || authLoading}
             />
             <Input
-              label="E-mail de Contato da Barbearia"
+              label="E-mail"
               name="email"
               type="email"
               value={values.email}
