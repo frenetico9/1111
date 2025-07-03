@@ -9,7 +9,7 @@ export const TEXT_DARK = '#111827';
 export const TEXT_LIGHT = '#6B7280';
 export const BORDER_COLOR = '#E5E7EB';
 
-export const NAVALHA_LOGO_URL = 'https://i.imgur.com/OViX73g.png';
+export const NAVALHA_LOGO_URL = 'https://i.imgur.com/eSjAXXA.png';
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
