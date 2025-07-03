@@ -2,6 +2,8 @@
 
 
 
+
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -231,10 +233,10 @@ async function initializeDatabase() {
       `;
       
       await pool.sql`
-        INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt") VALUES
-        ('appt1', 'client1', 'admin1', 'service1', 'barber1_admin1', CURRENT_DATE, '10:00', 'scheduled', NOW()),
-        ('appt2', 'client1', 'admin1', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days'),
-        ('appt3', 'client1', 'admin2', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW());
+        INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt", "sourceAppointmentId") VALUES
+        ('appt1', 'client1', 'admin1', 'service1', 'barber1_admin1', CURRENT_DATE, '10:00', 'scheduled', NOW(), NULL),
+        ('appt2', 'client1', 'admin1', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days', NULL),
+        ('appt3', 'client1', 'admin2', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW(), NULL);
       `;
       
       await pool.sql`
