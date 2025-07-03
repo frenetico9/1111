@@ -1,4 +1,3 @@
-
 {
   "short_name": "Navalha D.",
   "name": "Navalha Digital - Agendamento para Barbearias",
@@ -17,7 +16,7 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "theme_color": "#0052FF",
   "background_color": "#ffffff"
