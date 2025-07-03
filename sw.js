@@ -1,6 +1,6 @@
-// This is a robust service worker for PWA functionality (v2)
+// This is a robust service worker for PWA functionality (v3)
 
-const CACHE_NAME = 'navalha-digital-cache-v2'; // Bump version to force update
+const CACHE_NAME = 'navalha-digital-cache-v3'; // Bump version to force update
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,7 +9,7 @@ const urlsToCache = [
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap',
   'https://fonts.googleapis.com/icon?family=Material+Icons+Outlined',
-  'https://i.imgur.com/OViX73g.png' // Logo
+  'https://i.imgur.com/83wwvV2.png' // New Logo with blue background
 ];
 
 // Install: Open cache and add app shell files
