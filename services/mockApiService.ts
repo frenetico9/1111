@@ -201,15 +201,13 @@ async function initializeDatabase() {
         INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash) VALUES
         ('client1', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
         ('admin1', 'admin@barbearia.com', 'admin', 'Carlos Dono', '(21) 91234-5678', 'Barbearia do Carlos', 'Rua das Tesouras, 123, Rio de Janeiro', 'password123'),
-        ('admin2', 'vip@navalha.com', 'admin', 'Ana Estilista', '(31) 99999-8888', 'Navalha VIP Club', 'Avenida Principal, 789, Belo Horizonte', 'password123'),
-        ('admin3', 'wanted@barbearia.com', 'admin', 'Jesse James', '(85) 91887-1882', 'Wanted Barbearia', 'Rua do Duelo, 44, Fortaleza', 'password123');
+        ('admin2', 'vip@navalha.com', 'admin', 'Ana Estilista', '(31) 99999-8888', 'Navalha VIP Club', 'Avenida Principal, 789, Belo Horizonte', 'password123');
       `;
       
       await pool.sql`
         INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours") VALUES
-        ('admin1', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/eSjAXXA.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
-        ('admin2', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/eSjAXXA.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))}),
-        ('admin3', 'Wanted Barbearia', 'Jesse James', 'wanted@barbearia.com', '(85) 91887-1882', 'Rua do Duelo, 44, Fortaleza', 'Onde o estilo encontra a lei do mais forte.', 'https://i.imgur.com/c4TjB1g.png', 'https://i.imgur.com/y3aKq3r.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)});
+        ('admin1', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
+        ('admin2', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
       `;
   
       await pool.sql`
@@ -219,9 +217,7 @@ async function initializeDatabase() {
         ('service3', 'admin1', 'Combo Corte + Barba', 75, 75, true, 'O pacote completo para um visual impecável.'),
         ('service4', 'admin1', 'Hidratação Capilar', 40, 30, false, 'Tratamento para fortalecer e dar brilho.'),
         ('service5', 'admin2', 'Corte VIP', 120, 60, true, 'Atendimento exclusivo com consultoria de imagem.'),
-        ('service6', 'admin2', 'Barboterapia Premium', 90, 45, true, 'Ritual completo de cuidados para a barba.'),
-        ('service7', 'admin3', 'Corte do Fora da Lei', 60, 40, true, 'Um corte que impõe respeito.'),
-        ('service8', 'admin3', 'Barba de Pistoleiro', 45, 30, true, 'Modelagem de barba no estilo do velho oeste.');
+        ('service6', 'admin2', 'Barboterapia Premium', 90, 45, true, 'Ritual completo de cuidados para a barba.');
       `;
   
       await pool.sql`
@@ -246,8 +242,7 @@ async function initializeDatabase() {
       await pool.sql`
         INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
         ('admin1', 'free', 'active', NOW(), null),
-        ('admin2', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month'),
-        ('admin3', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
+        ('admin2', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
       `;
 
       const { rows: chatRows } = await pool.sql`
@@ -541,7 +536,7 @@ export const mockVerifyForgotPassword = async (name: string, email: string, phon
 export const mockResetPassword = async (email: string, newPass: string): Promise<boolean> => {
     await ensureDbInitialized();
     // Prevent password change for test accounts for demo stability
-    if (email === 'cliente@exemplo.com' || email === 'admin@barbearia.com' || email === 'vip@navalha.com' || email === 'wanted@barbearia.com') {
+    if (email === 'cliente@exemplo.com' || email === 'admin@barbearia.com' || email === 'vip@navalha.com') {
         throw new Error('Não é possível alterar a senha de contas de teste.');
     }
     const { rowCount } = await pool.sql`UPDATE users SET password_hash = ${newPass} WHERE email = ${email}`;
