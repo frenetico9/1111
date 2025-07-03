@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../components/Button';
 import { NAVALHA_LOGO_URL, SUBSCRIPTION_PLANS } from '../constants';
@@ -10,7 +10,12 @@ import StarRating from '../components/StarRating';
 
 // --- Sub-components for HomePage ---
 
-const HeroSection = () => (
+interface HeroSectionProps {
+  onInstallClick: () => void;
+  showInstallButton: boolean;
+}
+
+const HeroSection: React.FC<HeroSectionProps> = ({ onInstallClick, showInstallButton }) => (
   <section className="relative bg-dark-bg text-white overflow-hidden">
     <div className="absolute inset-0">
       <img src="https://i.imgur.com/LSorq3R.png" alt="Barbeiro trabalhando" className="w-full h-full object-cover" loading="lazy" />
@@ -38,6 +43,19 @@ const HeroSection = () => (
           </Button>
         </ReactRouterDOM.Link>
       </div>
+       {showInstallButton && (
+            <div className="mt-6 animate-fade-in-up [animation-delay:800ms]">
+                <Button
+                    size="md"
+                    variant="ghost"
+                    className="text-white hover:bg-white/20 backdrop-blur-sm"
+                    leftIcon={<span className="material-icons-outlined">download</span>}
+                    onClick={onInstallClick}
+                >
+                    Instalar Aplicativo
+                </Button>
+            </div>
+        )}
     </div>
   </section>
 );
@@ -290,10 +308,35 @@ const CTASection = () => (
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = useCallback(() => {
+    if (!installPrompt) {
+        return;
+    }
+    installPrompt.prompt();
+    installPrompt.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+        } else {
+            console.log('User dismissed the install prompt');
+        }
+        setInstallPrompt(null);
+    });
+  }, [installPrompt]);
   
   return (
     <div className="bg-white">
-      <HeroSection />
+      <HeroSection onInstallClick={handleInstallClick} showInstallButton={!!installPrompt} />
       <FeaturesSection />
       <BarbershopShowcaseSection isLoggedIn={!!user} />
       <PricingSection />
