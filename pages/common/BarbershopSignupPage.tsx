@@ -4,7 +4,7 @@ import { useForm } from '../../hooks/useForm';
 import { useAuth } from '../../hooks/useAuth';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import { NAVALHA_LOGO_URL, MIN_PASSWORD_LENGTH } from '../../constants';
+import { NAVALHA_LOGO_URL, MIN_PASSWORD_LENGTH, DF_CITIES } from '../../constants';
 import { useNotification } from '../../contexts/NotificationContext';
 import BackButton from '../../components/BackButton';
 
@@ -19,17 +19,19 @@ const BarbershopSignupPage: React.FC = () => {
       responsibleName: '',
       email: '',
       phone: '',
-      address: '',
+      streetAddress: '',
+      city: '',
       password: '',
       confirmPassword: '',
     },
     onSubmit: async (formValues) => {
+      const fullAddress = `${formValues.streetAddress}, ${formValues.city}`;
       const newUser = await signupBarbershop(
         formValues.barbershopName,
         formValues.responsibleName,
         formValues.email,
         formValues.phone,
-        formValues.address,
+        fullAddress,
         formValues.password
       );
       if (newUser) {
@@ -46,7 +48,8 @@ const BarbershopSignupPage: React.FC = () => {
       else if (!/\S+@\S+\.\S+/.test(formValues.email)) newErrors.email = 'E-mail inválido.';
       if (!formValues.phone.trim()) newErrors.phone = 'Telefone é obrigatório.';
       else if (!/^\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}$/.test(formValues.phone)) newErrors.phone = 'Telefone inválido. Formato: (XX) XXXXX-XXXX ou XXXXXXXX.';
-      if (!formValues.address.trim()) newErrors.address = 'Endereço é obrigatório.';
+      if (!formValues.streetAddress.trim()) newErrors.streetAddress = 'O endereço (rua, número, bairro) é obrigatório.';
+      if (!formValues.city.trim()) newErrors.city = 'A cidade é obrigatória.';
       if (!formValues.password) newErrors.password = 'Senha é obrigatória.';
       else if (formValues.password.length < MIN_PASSWORD_LENGTH) newErrors.password = `Senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
       if (formValues.password !== formValues.confirmPassword) newErrors.confirmPassword = 'As senhas não coincidem.';
@@ -117,15 +120,29 @@ const BarbershopSignupPage: React.FC = () => {
               placeholder="(XX) XXXXX-XXXX"
               disabled={isSubmitting || authLoading}
             />
-            <Input
-              label="Endereço Completo da Barbearia"
-              name="address"
-              value={values.address}
+             <Input
+              label="Endereço (Rua, Número, Bairro)"
+              name="streetAddress"
+              value={values.streetAddress}
               onChange={handleChange}
-              error={errors.address}
-              placeholder="Rua, Número, Bairro, Cidade - UF"
+              error={errors.streetAddress}
+              placeholder="Ex: Rua das Tesouras, 123"
               disabled={isSubmitting || authLoading}
             />
+            <Input
+              label="Cidade"
+              name="city"
+              type="select"
+              value={values.city}
+              onChange={handleChange}
+              error={errors.city}
+              disabled={isSubmitting || authLoading}
+            >
+              <option value="" disabled>Selecione uma cidade</option>
+              {DF_CITIES.sort().map(city => (
+                  <option key={city} value={city}>{city}</option>
+              ))}
+            </Input>
             <Input
               label="Senha de Acesso ao Painel"
               name="password"
