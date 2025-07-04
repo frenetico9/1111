@@ -32,7 +32,7 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
 );
 
 const ClientDashboardLayout: React.FC = () => {
-  const { user, logout, unreadChatCount } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -59,14 +59,6 @@ const ClientDashboardLayout: React.FC = () => {
         <ClientSidebarLink to="/client/loyalty" iconName="card_giftcard" onClick={closeSidebar}><span>Fidelidade</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}><span>Meu Perfil</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}><span>Encontrar Barbearias</span></ClientSidebarLink>
-        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>
-          <span>Chat</span>
-          {unreadChatCount > 0 && (
-            <span className="bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                {unreadChatCount > 9 ? '9+' : unreadChatCount}
-            </span>
-          )}
-        </ClientSidebarLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue dark:border-gray-700">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">
