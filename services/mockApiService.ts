@@ -243,7 +243,7 @@ async function initializeDatabase() {
       await pool.sql`
         INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
         ('admin@barbearia.com', 'free', 'active', NOW(), null),
-        ('vip@navalha.com', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
+        ('vip@navalha.com', 'pro', 'active', NOW() + INTERVAL '1 month');
       `;
 
       const { rows: chatRows } = await pool.sql`
@@ -835,7 +835,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
