@@ -1,4 +1,5 @@
 
+
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -1139,45 +1140,61 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
 
 export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
   await ensureDbInitialized();
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
 
-  // Atomically create or do nothing if exists, and return the row
-  const { rows } = await pool.sql`
-    INSERT INTO chats ("clientId", "barbershopId")
-    VALUES (${clientId}, ${barbershopId})
-    ON CONFLICT ("clientId", "barbershopId") DO UPDATE
-    SET "lastMessageAt" = COALESCE(chats."lastMessageAt", NOW()) -- just to make RETURNING work for existing rows
-    RETURNING id;
-  `;
-  const chatId = rows[0].id;
-  
-  // Now fetch the full conversation details
-  const { rows: convoRows } = await pool.sql`
-    SELECT 
-        c.id, c."clientId", u_client.name as "clientName",
-        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
-        c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
-    FROM chats c
-    JOIN users u_client ON c."clientId" = u_client.id
-    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-    WHERE c.id = ${chatId};
-  `;
+    // Step 1: Insert if it doesn't exist. ON CONFLICT does nothing but prevents errors.
+    await client.sql`
+      INSERT INTO chats ("clientId", "barbershopId")
+      VALUES (${clientId}, ${barbershopId})
+      ON CONFLICT ("clientId", "barbershopId") DO NOTHING;
+    `;
 
-  if (convoRows.length === 0) {
-      throw new Error('Failed to create or retrieve conversation.');
+    // Step 2: Undelete the chat for the client, in case they are re-initiating a deleted chat.
+    await client.sql`
+      UPDATE chats SET "deletedByClient" = FALSE 
+      WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
+    `;
+
+    // Step 3: Now, select the complete conversation data. It's guaranteed to exist.
+    const { rows: convoRows } = await client.sql`
+      SELECT 
+          c.id, c."clientId", u_client.name as "clientName",
+          c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
+          c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
+      FROM chats c
+      JOIN users u_client ON c."clientId" = u_client.id
+      JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+      WHERE c."clientId" = ${clientId} AND c."barbershopId" = ${barbershopId};
+    `;
+    
+    await client.sql`COMMIT`;
+
+    if (convoRows.length === 0) {
+      throw new Error(`Integridade dos dados: Não foi possível encontrar o perfil da barbearia (ID: ${barbershopId}) após criar a conversa.`);
+    }
+
+    return {
+      id: convoRows[0].id,
+      clientId: convoRows[0].clientId,
+      clientName: convoRows[0].clientName,
+      barbershopId: convoRows[0].barbershopId,
+      barbershopName: convoRows[0].barbershopName,
+      barbershopLogoUrl: convoRows[0].barbershopLogoUrl,
+      barbershopPhone: convoRows[0].barbershopPhone,
+      lastMessage: convoRows[0].lastMessage,
+      lastMessageAt: toOptionalIsoString(convoRows[0].lastMessageAt),
+      hasUnread: convoRows[0].hasUnread,
+    };
+
+  } catch (error) {
+    await client.sql`ROLLBACK`;
+    console.error("Error in mockCreateOrGetConversation:", error);
+    throw error; // Re-throw the original error to be caught by the UI
+  } finally {
+    client.release();
   }
-
-  return {
-    id: convoRows[0].id,
-    clientId: convoRows[0].clientId,
-    clientName: convoRows[0].clientName,
-    barbershopId: convoRows[0].barbershopId,
-    barbershopName: convoRows[0].barbershopName,
-    barbershopLogoUrl: convoRows[0].barbershopLogoUrl,
-    barbershopPhone: convoRows[0].barbershopPhone,
-    lastMessage: convoRows[0].lastMessage,
-    lastMessageAt: toOptionalIsoString(convoRows[0].lastMessageAt),
-    hasUnread: convoRows[0].hasUnread,
-  };
 };
 
 export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
