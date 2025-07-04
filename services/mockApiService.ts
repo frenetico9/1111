@@ -1,5 +1,7 @@
+
+
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 import { addMinutes, addWeeks } from 'date-fns';
 import { format } from 'date-fns/format';
@@ -123,53 +125,6 @@ async function initializeDatabase() {
         "nextBillingDate" TIMESTAMP WITH TIME ZONE
       );
     `;
-
-    await pool.sql`
-      CREATE TABLE IF NOT EXISTS chats (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "lastMessage" TEXT,
-        "lastMessageAt" TIMESTAMP WITH TIME ZONE,
-        "clientHasUnread" BOOLEAN DEFAULT FALSE,
-        "adminHasUnread" BOOLEAN DEFAULT FALSE
-      );
-    `;
-
-    // Explicitly add the UNIQUE constraint to handle cases where the table was created without the constraint.
-    // This makes the initialization process more robust and ensures ON CONFLICT works as expected.
-    try {
-        await pool.sql`ALTER TABLE chats ADD CONSTRAINT chats_client_barbershop_unique UNIQUE ("clientId", "barbershopId");`;
-        console.log('Ensured UNIQUE constraint on chats("clientId", "barbershopId") exists.');
-    } catch (e: any) {
-        if (e.code === '42710' || e.message.includes('already exists')) {
-            // This is expected if the table and constraint were already created correctly. We can safely ignore this.
-        } else {
-            // Any other error should be re-thrown as it might indicate a more serious problem.
-            console.error("An unexpected error occurred while adding UNIQUE constraint to chats table:", e);
-            throw e;
-        }
-    }
-    
-    try {
-        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByClient" BOOLEAN DEFAULT FALSE;`;
-        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByAdmin" BOOLEAN DEFAULT FALSE;`;
-        console.log('Ensured soft delete columns on chats table.');
-    } catch (e: any) {
-        console.error("An unexpected error occurred while adding soft delete columns to chats table:", e);
-        throw e;
-    }
-
-    await pool.sql`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id SERIAL PRIMARY KEY,
-        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "senderType" TEXT NOT NULL,
-        content TEXT NOT NULL,
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
-      );
-    `;
     
     await pool.sql`
       CREATE TABLE IF NOT EXISTS financial_transactions (
@@ -241,18 +196,6 @@ async function initializeDatabase() {
         ('vip@navalha.com', 'pro', 'active', NOW() + INTERVAL '1 month');
       `;
 
-      const { rows: chatRows } = await pool.sql`
-        INSERT INTO chats ("clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
-        ('cliente@exemplo.com', 'admin@barbearia.com', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true)
-        RETURNING id;
-      `;
-      const seededChatId = chatRows[0].id;
-
-      await pool.sql`
-        INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt") VALUES
-        (${seededChatId}, 'admin@barbearia.com', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
-        (${seededChatId}, 'cliente@exemplo.com', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
-      `;
       console.log('Data seeding complete.');
     } else {
       console.log('Database already seeded. Skipping seeding.');
@@ -416,15 +359,6 @@ const mapToBarbershopSearchResult = (row: any): BarbershopSearchResultItem => ({
     reviewCount: Number(row.reviewCount || 0),
     sampleServices: row.sampleServices || [],
     subscriptionTier: row.subscriptionTier || SubscriptionPlanTier.FREE
-});
-
-const mapToChatMessage = (row: any): ChatMessage => ({
-  id: String(row.id),
-  chatId: row.chatId,
-  senderId: row.senderId,
-  senderType: row.senderType,
-  content: row.content,
-  createdAt: toIsoString(row.createdAt),
 });
 
 const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
@@ -830,7 +764,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
@@ -1046,192 +980,6 @@ export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResult
         ORDER BY sub."planId" DESC, "averageRating" DESC;
     `;
     return rows.map(mapToBarbershopSearchResult);
-};
-
-// --- Chat ---
-export const mockGetAdminConversations = async (barbershopId: string): Promise<ChatConversation[]> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`
-    SELECT 
-        c.id, c."clientId", u.name as "clientName", u.phone as "clientPhone", 
-        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl",
-        c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread"
-    FROM chats c
-    JOIN users u ON c."clientId" = u.id
-    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-    WHERE c."barbershopId" = ${barbershopId} AND c."deletedByAdmin" = FALSE
-    ORDER BY c."lastMessageAt" DESC;
-  `;
-  return rows.map(row => ({
-    id: row.id,
-    clientId: row.clientId,
-    clientName: row.clientName,
-    clientPhone: row.clientPhone,
-    barbershopId: row.barbershopId,
-    barbershopName: row.barbershopName,
-    barbershopLogoUrl: row.barbershopLogoUrl,
-    lastMessage: row.lastMessage,
-    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
-    hasUnread: row.hasUnread,
-  }));
-};
-
-export const mockGetClientConversations = async (clientId: string): Promise<ChatConversation[]> => {
-  await ensureDbInitialized();
-  const { rows } = await pool.sql`
-    SELECT 
-        c.id, c."clientId", u.name as "clientName",
-        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
-        c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
-    FROM chats c
-    JOIN users u ON c."clientId" = u.id
-    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-    WHERE c."clientId" = ${clientId} AND c."deletedByClient" = FALSE
-    ORDER BY c."lastMessageAt" DESC;
-  `;
-  return rows.map(row => ({
-    id: row.id,
-    clientId: row.clientId,
-    clientName: row.clientName,
-    barbershopId: row.barbershopId,
-    barbershopName: row.barbershopName,
-    barbershopLogoUrl: row.barbershopLogoUrl,
-    barbershopPhone: row.barbershopPhone,
-    lastMessage: row.lastMessage,
-    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
-    hasUnread: row.hasUnread,
-  }));
-};
-
-export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<ChatMessage[]> => {
-  await ensureDbInitialized();
-  const client = await pool.connect();
-  try {
-    // Mark messages as read for the current user
-    if (userType === UserType.ADMIN) {
-      await client.sql`UPDATE chats SET "adminHasUnread" = FALSE WHERE id = ${chatId}::uuid AND "barbershopId" = ${userId};`;
-    } else {
-      await client.sql`UPDATE chats SET "clientHasUnread" = FALSE WHERE id = ${chatId}::uuid AND "clientId" = ${userId};`;
-    }
-
-    // Fetch messages
-    const { rows } = await client.sql`
-      SELECT * FROM chat_messages 
-      WHERE "chatId" = ${chatId}::uuid
-      ORDER BY "createdAt" ASC;
-    `;
-    return rows.map(mapToChatMessage);
-  } finally {
-    client.release();
-  }
-};
-
-export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
-  await ensureDbInitialized();
-  const client = await pool.connect();
-  try {
-    await client.sql`BEGIN`;
-    
-    // Insert message
-    const { rows: messageRows } = await client.sql`
-      INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
-      VALUES (${chatId}::uuid, ${senderId}, ${senderType}, ${content}, NOW())
-      RETURNING *;
-    `;
-
-    // Update chat metadata
-    const clientHasUnread = senderType === UserType.ADMIN;
-    const adminHasUnread = senderType === UserType.CLIENT;
-
-    await client.sql`
-      UPDATE chats
-      SET "lastMessage" = ${content},
-          "lastMessageAt" = NOW(),
-          "clientHasUnread" = "clientHasUnread" OR ${clientHasUnread},
-          "adminHasUnread" = "adminHasUnread" OR ${adminHasUnread},
-          "deletedByClient" = FALSE, -- Undelete if user sends a new message
-          "deletedByAdmin" = FALSE
-      WHERE id = ${chatId}::uuid;
-    `;
-
-    await client.sql`COMMIT`;
-    return mapToChatMessage(messageRows[0]);
-  } catch (e) {
-    await client.sql`ROLLBACK`;
-    throw e;
-  } finally {
-    client.release();
-  }
-};
-
-export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
-  await ensureDbInitialized();
-  
-  // Use a transaction to ensure atomicity
-  const dbClient = await pool.connect();
-  try {
-    await dbClient.sql`BEGIN`;
-
-    // Insert or update the chat. If it exists, undelete it for the client who is initiating.
-    await dbClient.sql`
-      INSERT INTO chats ("clientId", "barbershopId", "deletedByClient")
-      VALUES (${clientId}, ${barbershopId}, FALSE)
-      ON CONFLICT ("clientId", "barbershopId") 
-      DO UPDATE SET "deletedByClient" = FALSE;
-    `;
-
-    // Now that we're sure the chat exists and is visible to the client, fetch its full details.
-    const { rows: convoRows } = await dbClient.sql`
-      SELECT 
-          c.id, c."clientId", u_client.name as "clientName",
-          c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
-          c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
-      FROM chats c
-      JOIN users u_client ON c."clientId" = u_client.id
-      JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-      WHERE c."clientId" = ${clientId} AND c."barbershopId" = ${barbershopId};
-    `;
-    
-    await dbClient.sql`COMMIT`;
-
-    if (convoRows.length === 0) {
-      // This should ideally not happen due to the logic above.
-      throw new Error(`Integrity error: Could not find conversation for client ${clientId} and barbershop ${barbershopId}.`);
-    }
-
-    const row = convoRows[0];
-    return {
-      id: row.id,
-      clientId: row.clientId,
-      clientName: row.clientName,
-      barbershopId: row.barbershopId,
-      barbershopName: row.barbershopName,
-      barbershopLogoUrl: row.barbershopLogoUrl,
-      barbershopPhone: row.barbershopPhone,
-      lastMessage: row.lastMessage,
-      lastMessageAt: toOptionalIsoString(row.lastMessageAt),
-      hasUnread: row.hasUnread,
-    };
-
-  } catch (error) {
-    await dbClient.sql`ROLLBACK`;
-    console.error("Error in mockCreateOrGetConversation:", error);
-    throw error;
-  } finally {
-    dbClient.release();
-  }
-};
-
-export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
-  await ensureDbInitialized();
-  let updateQuery;
-  if (userType === 'admin') {
-    updateQuery = pool.sql`UPDATE chats SET "deletedByAdmin" = TRUE WHERE id = ${chatId}::uuid;`;
-  } else {
-    updateQuery = pool.sql`UPDATE chats SET "deletedByClient" = TRUE WHERE id = ${chatId}::uuid;`;
-  }
-  const { rowCount } = await updateQuery;
-  return rowCount > 0;
 };
 
 // --- Financials ---
