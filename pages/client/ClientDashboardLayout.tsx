@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate, Link, Outlet } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { NAVALHA_LOGO_URL } from '../../constants';
 import Button from '../../components/Button';
@@ -12,7 +12,7 @@ interface ClientSidebarLinkProps {
 }
 
 const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, iconName, onClick }) => (
-  <NavLink
+  <ReactRouterDOM.NavLink
     to={to}
     onClick={onClick}
     end
@@ -28,12 +28,12 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
       {iconName}
     </span>
     <div className="flex-grow flex justify-between items-center">{children}</div>
-  </NavLink>
+  </ReactRouterDOM.NavLink>
 );
 
 const ClientDashboardLayout: React.FC = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, logout, unreadChatCount } = useAuth();
+  const navigate = ReactRouterDOM.useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
@@ -45,7 +45,7 @@ const ClientDashboardLayout: React.FC = () => {
 
   const SidebarContent = () => (
     <aside className="w-60 bg-white dark:bg-gray-800 shadow-lg p-4 space-y-2 flex flex-col h-screen">
-      <Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue dark:border-gray-700 group">
+      <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 mb-6 p-2 border-b border-light-blue dark:border-gray-700 group">
         <div className="bg-primary-blue rounded-full p-2 w-12 h-12 md:w-16 md:h-16 flex items-center justify-center group-hover:opacity-80 transition-opacity flex-shrink-0">
           <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
         </div>
@@ -53,12 +53,20 @@ const ClientDashboardLayout: React.FC = () => {
           <h2 className="text-base md:text-lg font-bold text-primary-blue group-hover:opacity-80 transition-opacity leading-tight">Cliente</h2>
           {user && <p className="text-xs text-text-light dark:text-gray-400 truncate max-w-[120px]">{user.name || user.email}</p>}
         </div>
-      </Link>
+      </ReactRouterDOM.Link>
       <nav className="space-y-1.5 flex-grow">
         <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}><span>Meus Agendamentos</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/loyalty" iconName="card_giftcard" onClick={closeSidebar}><span>Fidelidade</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}><span>Meu Perfil</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}><span>Encontrar Barbearias</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}>
+          <span>Chat</span>
+          {unreadChatCount > 0 && (
+            <span className="bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+            </span>
+          )}
+        </ClientSidebarLink>
       </nav>
       <div className="mt-auto pt-4 border-t border-light-blue dark:border-gray-700">
          <Button onClick={handleLogout} variant="outline" fullWidth size="sm">
@@ -86,7 +94,7 @@ const ClientDashboardLayout: React.FC = () => {
             <span className="text-sm font-semibold text-primary-blue">Painel do Cliente</span>
         </header>
         <main className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto">
-          <Outlet />
+          <ReactRouterDOM.Outlet />
         </main>
       </div>
     </div>

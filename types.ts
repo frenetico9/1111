@@ -114,6 +114,30 @@ export interface BarbershopSearchResultItem extends BarbershopProfile {
   subscriptionTier: SubscriptionPlanTier;
 }
 
+// CHAT TYPES
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderType: 'client' | 'admin';
+  content: string;
+  createdAt: string; // ISO date string
+}
+
+export interface ChatConversation {
+  id: string; // chat id
+  clientId: string;
+  clientName: string;
+  clientPhone?: string;
+  barbershopId: string;
+  barbershopName: string;
+  barbershopLogoUrl?: string;
+  barbershopPhone?: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  hasUnread: boolean; // For the current viewer
+}
+
 // --- NEW TYPES ---
 
 // For Financial Module
@@ -134,25 +158,4 @@ export interface ClientLoyaltyStatus {
   barbershopName: string;
   barbershopLogoUrl?: string;
   completedCount: number;
-}
-
-// --- NEW CHAT TYPES ---
-export interface ChatMessage {
-  id: string;
-  chatId: string;
-  senderId: string;
-  senderType: UserType;
-  content: string;
-  createdAt: string; // ISO date string
-}
-
-// Represents a conversation for the admin view
-export interface ChatConversation {
-  id: string; // The ID of the chat itself
-  clientId: string;
-  clientName: string;
-  barbershopId: string;
-  lastMessage?: string;
-  lastMessageAt?: string;
-  hasUnread: boolean; // This will be true if there are unread messages for the admin
 }

@@ -1,214 +1,331 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { mockGetConversationsForClient, mockGetMessagesForConversation, mockSendMessage } from '../../services/mockApiService';
-import { Conversation, ChatMessage } from '../../types';
+import { ChatConversation, ChatMessage, UserType } from '../../types';
+import {
+  mockGetClientConversations,
+  mockGetMessagesForChat,
+  mockSendMessage,
+  mockCreateOrGetConversation,
+  mockDeleteChatForUser,
+} from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import Button from '../../components/Button';
-import Input from '../../components/Input';
+import { useNotification } from '../../contexts/NotificationContext';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { formatDistance } from 'date-fns/formatDistance';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { NAVALHA_LOGO_URL } from '../../constants';
+import Button from '../../components/Button';
+import Input from '../../components/Input';
 
-const ConversationListItem: React.FC<{ conv: Conversation; isSelected: boolean; onClick: () => void }> = ({ conv, isSelected, onClick }) => (
+
+const ConversationListItem: React.FC<{
+  conversation: ChatConversation;
+  isSelected: boolean;
+  onClick: () => void;
+  onDelete: (conversationId: string) => void;
+}> = ({ conversation, isSelected, onClick, onDelete }) => {
+  const bgColor = isSelected ? 'bg-light-blue' : 'bg-white hover:bg-gray-50';
+  const formatLastMessageTime = (date?: string) => {
+    if (!date) return '';
+    try {
+      const parsedDate = parseISO(date);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date value received for formatting:', date);
+        return '';
+      }
+      const formatOptions = { addSuffix: true, locale: ptBR };
+      return formatDistance(parsedDate, new Date(), formatOptions);
+    } catch (error) {
+      console.error('Error formatting date in ConversationListItem:', error);
+      return '';
+    }
+  };
+
+  return (
     <div
-        onClick={onClick}
-        className={`p-3 flex items-center space-x-3 cursor-pointer rounded-lg transition-colors duration-150 border-l-4 ${isSelected ? 'bg-light-blue border-primary-blue' : 'border-transparent hover:bg-gray-100'}`}
+      className={`group flex items-center p-3 cursor-pointer transition-colors duration-150 border-b border-light-blue ${bgColor}`}
+      onClick={onClick}
     >
-        <img src={conv.otherParty.avatarUrl || NAVALHA_LOGO_URL} alt={conv.otherParty.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0 bg-white" />
-        <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-center">
-                <p className="font-semibold text-text-dark truncate">{conv.otherParty.name}</p>
-                <span className="text-xs text-text-light flex-shrink-0 ml-2">{format(parseISO(conv.lastMessageTimestamp), 'HH:mm')}</span>
-            </div>
-            <div className="flex justify-between items-start">
-                <p className="text-sm text-text-light truncate">{conv.lastMessage}</p>
-                {conv.unreadCount > 0 && (
-                    <span className="bg-primary-blue text-white text-xs font-bold rounded-full px-2 py-0.5 ml-2">{conv.unreadCount}</span>
-                )}
-            </div>
+      <img
+        src={conversation.barbershopLogoUrl || 'https://i.imgur.com/OViX73g.png'}
+        alt={`${conversation.barbershopName} logo`}
+        className="w-12 h-12 rounded-full mr-3 object-cover flex-shrink-0"
+      />
+      <div className="flex-1 overflow-hidden">
+        <div className="flex justify-between items-center">
+          <h4 className="font-semibold text-sm text-text-dark truncate">{conversation.barbershopName}</h4>
+          <span className="text-xs text-text-light flex-shrink-0 ml-2">{formatLastMessageTime(conversation.lastMessageAt)}</span>
         </div>
+        <div className="flex justify-between items-start">
+          <p className="text-xs text-text-light truncate pr-2">{conversation.lastMessage || 'Nenhuma mensagem ainda.'}</p>
+          {conversation.hasUnread && (
+            <span className="w-2.5 h-2.5 bg-primary-blue rounded-full flex-shrink-0 mt-1"></span>
+          )}
+        </div>
+      </div>
+       <button
+        onClick={(e) => {
+            e.stopPropagation();
+            onDelete(conversation.id);
+        }}
+        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors"
+        title="Apagar conversa"
+        aria-label="Apagar conversa"
+      >
+        <span className="material-icons-outlined text-lg">delete</span>
+      </button>
     </div>
-);
+  );
+};
 
-const ChatMessageBubble: React.FC<{ message: ChatMessage; isMe: boolean }> = ({ message, isMe }) => (
-    <div className={`flex my-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-        <div className={`p-3 rounded-2xl max-w-[80%] ${isMe ? 'bg-primary-blue text-white rounded-br-none' : 'bg-gray-200 text-text-dark rounded-bl-none'}`}>
-            <p className="text-sm">{message.message}</p>
-            <p className={`text-xs mt-1 ${isMe ? 'text-blue-200' : 'text-gray-500'} text-right`}>
-                {format(parseISO(message.createdAt), 'HH:mm')}
-            </p>
-        </div>
+const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = ({ message, isCurrentUser }) => {
+  const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
+  const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
+  const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
+  
+  const dateObj = parseISO(message.createdAt);
+  const formattedTime = !isNaN(dateObj.getTime())
+    ? format(dateObj, 'HH:mm')
+    : '??:??';
+
+  return (
+    <div className={`flex ${alignment} mb-3`}>
+      <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-sm ${bubbleColor} ${borderRadius}`}>
+        <p className="text-sm break-words">{message.content}</p>
+        <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
+          {formattedTime}
+        </p>
+      </div>
     </div>
-);
+  );
+};
+
 
 const ClientChatPage: React.FC = () => {
-    const { user } = useAuth();
-    const { conversationId } = useParams<{ conversationId?: string }>();
-    const navigate = useNavigate();
+  const { user, refreshUnreadCount } = useAuth();
+  const { addNotification } = useNotification();
+  const { barbershopId: barbershopIdFromUrl } = useParams<{ barbershopId?: string }>();
+  const navigate = useNavigate();
+  
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
 
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [newMessage, setNewMessage] = useState('');
-    const [loadingConversations, setLoadingConversations] = useState(true);
-    const [loadingMessages, setLoadingMessages] = useState(false);
-    const [isSending, setIsSending] = useState(false);
-    
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const selectedConversation = conversations.find(c => c.id === conversationId);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-    const fetchConversations = useCallback(async () => {
-        if (user) {
-            setLoadingConversations(true);
-            try {
-                const convs = await mockGetConversationsForClient(user.id);
-                setConversations(convs);
-            } catch (error) {
-                console.error("Failed to fetch conversations", error);
-            } finally {
-                setLoadingConversations(false);
-            }
+  useEffect(scrollToBottom, [messages]);
+
+  const fetchConversations = useCallback(async () => {
+    if (!user) return;
+    setLoadingConversations(true);
+    try {
+        const convos = await mockGetClientConversations(user.id);
+        setConversations(convos);
+    } catch (error) {
+        console.error('Erro ao buscar conversas:', error);
+        addNotification({ message: "Erro ao buscar conversas.", type: 'error' });
+    } finally {
+        setLoadingConversations(false);
+    }
+  }, [user, addNotification]);
+
+  // Initial conversation list load
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+  
+  // The click handler now only navigates. The URL is the single source of truth.
+  const handleSelectConversation = (conversation: ChatConversation) => {
+    // Prevent redundant navigation if the same chat is already selected
+    if (barbershopIdFromUrl === conversation.barbershopId) {
+      return;
+    }
+    navigate(`/client/chat/${conversation.barbershopId}`, { replace: true });
+  };
+  
+  // This single useEffect hook now manages selecting, loading, and creating conversations
+  // based on the `barbershopIdFromUrl` param. This simplifies logic and fixes state bugs.
+  useEffect(() => {
+    const processUrlAndSelectConversation = async () => {
+      // Wait for user and the initial conversation list to be loaded.
+      if (!user || loadingConversations) {
+        return;
+      }
+
+      // If there's no barbershopId in the URL, clear the active chat view.
+      if (!barbershopIdFromUrl) {
+        setActiveConversation(null);
+        setMessages([]);
+        return;
+      }
+
+      let conversationToSelect = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
+
+      if (conversationToSelect) {
+        // The conversation exists in our list. Select it if it's not already the active one.
+        if (activeConversation?.id !== conversationToSelect.id) {
+          setActiveConversation(conversationToSelect);
+          setLoadingMessages(true);
+          try {
+            const fetchedMessages = await mockGetMessagesForChat(conversationToSelect.id, user.id, UserType.CLIENT);
+            setMessages(fetchedMessages);
+            // Mark as read locally and refresh the global count in the sidebar
+            setConversations(prev => prev.map(c => c.id === conversationToSelect.id ? { ...c, hasUnread: false } : c));
+            await refreshUnreadCount();
+          } catch (error) {
+            console.error('Erro ao carregar mensagens:', error);
+            addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
+          } finally {
+            setLoadingMessages(false);
+          }
         }
-    }, [user]);
-
-    const fetchMessages = useCallback(async () => {
-        if (user && conversationId) {
-            setLoadingMessages(true);
-            try {
-                const msgs = await mockGetMessagesForConversation(conversationId, user.id);
-                setMessages(msgs);
-                // After fetching, mark the conversation as read locally
-                setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, unreadCount: 0 } : c));
-            } catch (error) {
-                console.error("Failed to fetch messages", error);
-            } finally {
-                setLoadingMessages(false);
-            }
-        }
-    }, [user, conversationId]);
-
-    useEffect(() => {
-        fetchConversations();
-        const interval = setInterval(fetchConversations, 10000); // Poll for new conversations every 10s
-        return () => clearInterval(interval);
-    }, [fetchConversations]);
-
-    useEffect(() => {
-        if (conversationId) {
-            fetchMessages();
-            const interval = setInterval(fetchMessages, 5000); // Poll for new messages every 5s
-            return () => clearInterval(interval);
-        } else {
-            setMessages([]);
-        }
-    }, [conversationId, fetchMessages]);
-
-    useEffect(scrollToBottom, [messages]);
-
-    const handleSendMessage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!user || !selectedConversation || !newMessage.trim()) return;
-
-        setIsSending(true);
+      } else {
+        // The conversation does not exist in the list, so we need to create it.
+        setLoadingMessages(true); // Show loading state in the main chat panel
         try {
-            await mockSendMessage({
-                conversationId: selectedConversation.id,
-                senderId: user.id,
-                receiverId: selectedConversation.otherParty.id,
-                message: newMessage.trim(),
-            });
-            setNewMessage('');
-            await fetchMessages(); // Refetch immediately after sending
+          // This service function creates the chat if it doesn't exist.
+          await mockCreateOrGetConversation(user.id, barbershopIdFromUrl);
+          // After creation, refetch the entire list to get the new conversation. This is
+          // more robust than trying to manually add the new item to the state.
+          await fetchConversations();
+          // The useEffect will then run again with the updated list, `conversationToSelect`
+          // will be found, and the chat will be loaded correctly.
         } catch (error) {
-            console.error("Failed to send message", error);
-        } finally {
-            setIsSending(false);
+          console.error('Error creating or getting conversation:', error);
+          addNotification({ message: 'Falha ao iniciar a conversa.', type: 'error' });
+          navigate('/client/chat', { replace: true });
+          setLoadingMessages(false);
+        }
+      }
+    };
+
+    processUrlAndSelectConversation();
+    
+  }, [barbershopIdFromUrl, user, conversations, loadingConversations, navigate, addNotification, fetchConversations, refreshUnreadCount, activeConversation?.id]);
+
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !activeConversation || !user) return;
+    setIsSending(true);
+    try {
+        const sentMessage = await mockSendMessage(activeConversation.id, user.id, UserType.CLIENT, newMessage.trim());
+        setMessages(prev => [...prev, sentMessage]);
+        setNewMessage('');
+        fetchConversations(); // Refresh list to get last message update
+        await refreshUnreadCount();
+    } catch (error) {
+        console.error('Falha ao enviar mensagem:', error);
+        addNotification({ message: 'Falha ao enviar mensagem.', type: 'error' });
+    } finally {
+        setIsSending(false);
+    }
+  };
+  
+    const handleDeleteConversation = async (conversationId: string) => {
+        if (!window.confirm("Tem certeza que deseja apagar esta conversa? Esta ação não pode ser desfeita e a conversa será removida apenas da sua visualização.")) {
+            return;
+        }
+        try {
+            await mockDeleteChatForUser(conversationId, UserType.CLIENT);
+            addNotification({ message: "Conversa apagada com sucesso.", type: 'success' });
+
+            setConversations(prev => prev.filter(c => c.id !== conversationId));
+            if (activeConversation?.id === conversationId) {
+                setActiveConversation(null);
+                setMessages([]);
+                navigate('/client/chat', { replace: true });
+            }
+            await refreshUnreadCount();
+        } catch (error) {
+            console.error("Erro ao apagar conversa:", error);
+            addNotification({ message: "Erro ao apagar conversa.", type: 'error' });
         }
     };
 
-    const handleSelectConversation = (convId: string) => {
-        navigate(`/client/chat/${convId}`);
-    };
-
-    return (
-        <div className="flex h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border border-light-blue overflow-hidden">
-            {/* Conversations List */}
-            <div className={`w-full md:w-1/3 border-r border-light-blue flex-col ${conversationId && 'hidden md:flex'}`}>
-                <div className="p-4 border-b border-light-blue">
-                    <h1 className="text-xl font-bold text-primary-blue">Conversas</h1>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    {loadingConversations ? <LoadingSpinner label="Carregando..." /> : conversations.length === 0 ? (
-                        <p className="p-4 text-center text-sm text-text-light">Nenhuma conversa encontrada.</p>
-                    ) : (
-                        conversations.map(conv => (
-                            <ConversationListItem
-                                key={conv.id}
-                                conv={conv}
-                                isSelected={conv.id === conversationId}
-                                onClick={() => handleSelectConversation(conv.id)}
-                            />
-                        ))
-                    )}
-                </div>
+  return (
+    <div className="flex h-[calc(100vh-120px)] bg-white rounded-lg shadow-xl border border-light-blue overflow-hidden">
+        <div className="w-1/3 border-r border-light-blue flex flex-col">
+            <div className="p-4 border-b border-light-blue">
+                <h2 className="text-xl font-bold text-primary-blue">Conversas</h2>
             </div>
-
-            {/* Chat View */}
-            <div className={`w-full md:w-2/3 flex-col ${!conversationId && 'hidden md:flex'}`}>
-                {selectedConversation ? (
-                    <>
-                        <div className="p-3 border-b border-light-blue flex items-center space-x-3">
-                            <Button variant="ghost" className="md:hidden" onClick={() => navigate('/client/chat')}><span className="material-icons-outlined">arrow_back</span></Button>
-                            <img src={selectedConversation.otherParty.avatarUrl || NAVALHA_LOGO_URL} alt={selectedConversation.otherParty.name} className="w-10 h-10 rounded-full object-cover bg-white" />
-                            <div>
-                                <p className="font-semibold text-text-dark">{selectedConversation.otherParty.name}</p>
-                                {selectedConversation.otherParty.phone && (
-                                    <a href={`tel:${selectedConversation.otherParty.phone}`} className="text-xs text-primary-blue hover:underline flex items-center">
-                                       <span className="material-icons-outlined text-xs mr-1">phone</span> {selectedConversation.otherParty.phone}
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
-                            {loadingMessages ? <LoadingSpinner /> : (
-                                <>
-                                    {messages.map(msg => <ChatMessageBubble key={msg.id} message={msg} isMe={msg.senderId === user?.id} />)}
-                                    <div ref={messagesEndRef} />
-                                </>
-                            )}
-                        </div>
-                        <form onSubmit={handleSendMessage} className="p-4 border-t border-light-blue bg-white">
-                            <div className="flex items-center space-x-2">
-                                <Input
-                                    name="newMessage"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Digite sua mensagem..."
-                                    containerClassName="flex-1 mb-0"
-                                    disabled={isSending}
-                                    autoComplete="off"
-                                />
-                                <Button type="submit" isLoading={isSending} disabled={!newMessage.trim()}>
-                                    <span className="material-icons-outlined">send</span>
-                                </Button>
-                            </div>
-                        </form>
-                    </>
+            <div className="flex-1 overflow-y-auto">
+                {loadingConversations ? <LoadingSpinner /> : conversations.length > 0 ? (
+                    conversations.map(convo => (
+                        <ConversationListItem
+                            key={convo.id}
+                            conversation={convo}
+                            isSelected={activeConversation?.id === convo.id}
+                            onClick={() => handleSelectConversation(convo)}
+                            onDelete={handleDeleteConversation}
+                        />
+                    ))
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-text-light p-8">
-                        <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">chat</span>
-                        <h2 className="text-xl font-semibold">Selecione uma conversa</h2>
-                        <p>Escolha uma conversa na lista para ver as mensagens.</p>
-                    </div>
+                    <div className="p-4 text-center text-sm text-gray-500">Nenhuma conversa encontrada.</div>
                 )}
             </div>
         </div>
-    );
+
+        <div className="w-2/3 flex flex-col">
+            {activeConversation ? (
+                <>
+                    <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
+                        <h3 className="font-semibold text-text-dark">{activeConversation.barbershopName}</h3>
+                        {activeConversation.barbershopPhone && (
+                           <div className="flex items-center gap-1.5 bg-light-blue text-primary-blue px-3 py-1.5 rounded-lg text-sm font-medium">
+                               <span className="material-icons-outlined text-base">phone</span>
+                               <span>{activeConversation.barbershopPhone}</span>
+                           </div>
+                        )}
+                    </div>
+                    <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
+                        {loadingMessages ? <LoadingSpinner /> : (
+                            messages.map(msg => (
+                                <ChatBubble key={msg.id} message={msg} isCurrentUser={msg.senderType === 'client'} />
+                            ))
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    <div className="p-4 bg-white border-t border-light-blue">
+                        <form onSubmit={handleSendMessage} className="flex gap-2">
+                            <Input
+                                containerClassName="flex-grow mb-0"
+                                name="newMessage"
+                                placeholder="Digite sua mensagem..."
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                disabled={isSending}
+                                autoComplete="off"
+                            />
+                            <Button type="submit" isLoading={isSending} disabled={!newMessage.trim()} rightIcon={<span className="material-icons-outlined">send</span>}>
+                                Enviar
+                            </Button>
+                        </form>
+                    </div>
+                </>
+            ) : (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
+                    {loadingMessages || (loadingConversations && barbershopIdFromUrl) ? <LoadingSpinner label="Carregando conversa..." /> : (
+                         <>
+                            <span className="material-icons-outlined text-6xl text-primary-blue/30 mb-4">chat</span>
+                            <h3 className="text-xl font-semibold text-gray-600">Selecione uma conversa</h3>
+                            <p className="text-sm text-gray-500 max-w-xs">Escolha uma conversa da lista ou encontre uma barbearia para iniciar um novo chat.</p>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    </div>
+  );
 };
 
 export default ClientChatPage;

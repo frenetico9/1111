@@ -3,7 +3,7 @@ import { ClientLoyaltyStatus } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { mockGetClientLoyaltyStatus } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 
 const LOYALTY_GOAL = 10;
@@ -86,9 +86,9 @@ const ClientLoyaltyPage: React.FC = () => {
           <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">card_giftcard</span>
           <p className="text-xl text-gray-600 mb-4">Você ainda não tem cartões de fidelidade.</p>
           <p className="text-sm text-gray-500 mb-6">Seus cartões aparecerão aqui conforme você completa agendamentos nas barbearias.</p>
-          <Link to="/client/find-barbershops">
+          <ReactRouterDOM.Link to="/client/find-barbershops">
             <Button variant="primary" size="lg">Encontrar uma Barbearia</Button>
-          </Link>
+          </ReactRouterDOM.Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

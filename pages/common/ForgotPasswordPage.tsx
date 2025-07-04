@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useForm } from '../../hooks/useForm';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
@@ -9,7 +9,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { mockVerifyForgotPassword, mockResetPassword } from '../../services/mockApiService';
 
 const ForgotPasswordPage: React.FC = () => {
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const { addNotification } = useNotification();
     const [step, setStep] = useState<'verify' | 'reset' | 'success'>('verify');
     const [verifiedEmail, setVerifiedEmail] = useState('');
@@ -69,10 +69,10 @@ const ForgotPasswordPage: React.FC = () => {
     return (
         <div className="min-h-[calc(100vh-150px)] flex items-center justify-center p-6 bg-surface">
             <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-2xl border border-light-blue">
-                <Link to="/" className="flex flex-col items-center mb-6 group">
+                <ReactRouterDOM.Link to="/" className="flex flex-col items-center mb-6 group">
                     <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-24 h-24 mb-4" />
                     <h2 className="text-2xl font-bold text-center text-primary-blue">Redefinir Senha</h2>
-                </Link>
+                </ReactRouterDOM.Link>
 
                 {step === 'verify' && (
                     <>
