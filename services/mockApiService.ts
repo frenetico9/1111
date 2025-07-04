@@ -167,8 +167,8 @@ async function initializeDatabase() {
 
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chat_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        id SERIAL PRIMARY KEY,
+        "chatId" TEXT NOT NULL,
         "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "senderType" TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -424,7 +424,7 @@ const mapToBarbershopSearchResult = (row: any): BarbershopSearchResultItem => ({
 });
 
 const mapToChatMessage = (row: any): ChatMessage => ({
-  id: row.id,
+  id: String(row.id),
   chatId: row.chatId,
   senderId: row.senderId,
   senderType: row.senderType,
