@@ -152,11 +152,11 @@ const ClientChatPage: React.FC = () => {
     navigate(`/client/chat/${conversation.barbershopId}`, { replace: true });
   };
   
-  // This single useEffect hook now manages selecting, loading, and creating conversations
-  // based on the `barbershopIdFromUrl` param. This simplifies logic and fixes state bugs.
+  // This single useEffect hook now manages selecting, loading, and creating conversations.
+  // The logic is made more linear to avoid race conditions and complex re-renders.
   useEffect(() => {
     const processUrlAndSelectConversation = async () => {
-      // Wait for user and the initial conversation list to be loaded.
+      // Guard: wait for user and initial conversation list to be loaded
       if (!user || loadingConversations) {
         return;
       }
@@ -167,50 +167,47 @@ const ClientChatPage: React.FC = () => {
         setMessages([]);
         return;
       }
+      
+      // If the correct conversation is already active, do nothing.
+      if(activeConversation?.barbershopId === barbershopIdFromUrl) {
+        return;
+      }
 
-      let conversationToSelect = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
+      // Find or create the conversation
+      setLoadingMessages(true);
+      try {
+        let conversationToSelect = conversations.find(c => c.barbershopId === barbershopIdFromUrl);
+        
+        if (!conversationToSelect) {
+          // If it doesn't exist in our state, create it via API
+          conversationToSelect = await mockCreateOrGetConversation(user.id, barbershopIdFromUrl);
+          // Add the new conversation to the list so the UI updates
+          setConversations(prev => [conversationToSelect!, ...prev.filter(p => p.id !== conversationToSelect!.id)]);
+        }
 
-      if (conversationToSelect) {
-        // The conversation exists in our list. Select it if it's not already the active one.
-        if (activeConversation?.id !== conversationToSelect.id) {
-          setActiveConversation(conversationToSelect);
-          setLoadingMessages(true);
-          try {
-            const fetchedMessages = await mockGetMessagesForChat(conversationToSelect.id, user.id, UserType.CLIENT);
-            setMessages(fetchedMessages);
-            // Mark as read locally and refresh the global count in the sidebar
-            setConversations(prev => prev.map(c => c.id === conversationToSelect.id ? { ...c, hasUnread: false } : c));
-            await refreshUnreadCount();
-          } catch (error) {
-            console.error('Erro ao carregar mensagens:', error);
-            addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
-          } finally {
-            setLoadingMessages(false);
-          }
+        // Now, we have a valid conversation. Set it active and load its messages.
+        setActiveConversation(conversationToSelect);
+        const fetchedMessages = await mockGetMessagesForChat(conversationToSelect.id, user.id, UserType.CLIENT);
+        setMessages(fetchedMessages);
+
+        // Mark as read if necessary
+        if (conversationToSelect.hasUnread) {
+          setConversations(prev => prev.map(c => c.id === conversationToSelect!.id ? { ...c, hasUnread: false } : c));
+          await refreshUnreadCount();
         }
-      } else {
-        // The conversation does not exist in the list, so we need to create it.
-        setLoadingMessages(true); // Show loading state in the main chat panel
-        try {
-          // This service function creates the chat if it doesn't exist.
-          await mockCreateOrGetConversation(user.id, barbershopIdFromUrl);
-          // After creation, refetch the entire list to get the new conversation. This is
-          // more robust than trying to manually add the new item to the state.
-          await fetchConversations();
-          // The useEffect will then run again with the updated list, `conversationToSelect`
-          // will be found, and the chat will be loaded correctly.
-        } catch (error) {
-          console.error('Error creating or getting conversation:', error);
-          addNotification({ message: 'Falha ao iniciar a conversa.', type: 'error' });
-          navigate('/client/chat', { replace: true });
-          setLoadingMessages(false);
-        }
+        
+      } catch (error) {
+        console.error('Error selecting or creating conversation:', error);
+        addNotification({ message: 'Falha ao carregar ou iniciar a conversa.', type: 'error' });
+        navigate('/client/chat', { replace: true });
+      } finally {
+        setLoadingMessages(false);
       }
     };
 
     processUrlAndSelectConversation();
     
-  }, [barbershopIdFromUrl, user, conversations, loadingConversations, navigate, addNotification, fetchConversations, refreshUnreadCount, activeConversation?.id]);
+  }, [barbershopIdFromUrl, user, conversations, loadingConversations, activeConversation?.barbershopId, navigate, addNotification, refreshUnreadCount]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
