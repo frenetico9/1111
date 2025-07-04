@@ -1,5 +1,3 @@
-
-
 import { createPool } from '@vercel/postgres';
 import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
@@ -20,9 +18,6 @@ const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-sh
 
 const pool = createPool({
   connectionString: process.env.POSTGRES_URL || NEON_CONNECTION_STRING,
-  // @ts-ignore - webSocketConstructor is a valid option for the underlying Neon driver but not exposed in Vercel's types.
-  // This explicitly passes the browser's WebSocket implementation to the driver, fixing the connection issue in a browser environment.
-  webSocketConstructor: typeof window !== 'undefined' ? WebSocket : undefined,
 });
 
 
@@ -835,7 +830,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
