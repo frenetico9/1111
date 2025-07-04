@@ -1,28 +1,28 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 import BackButton from './BackButton';
 
 const NavLinkItem = React.memo<{ to: string; children: React.ReactNode; onClick?: () => void }>(({ to, children, onClick }) => (
-  <ReactRouterDOM.NavLink
+  <NavLink
     to={to}
     onClick={onClick}
     className="block md:inline-block py-3 md:py-0 px-4 md:px-0 text-lg md:text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200"
   >
     {children}
-  </ReactRouterDOM.NavLink>
+  </NavLink>
 ));
 NavLinkItem.displayName = 'NavLinkItem';
 
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
-  const location = ReactRouterDOM.useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
@@ -57,10 +57,10 @@ const Header: React.FC = () => {
     <header className="bg-dark-bg shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 group">
+            <Link to="/" className="flex items-center space-x-2 group">
               <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
               <span className="text-xl sm:text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
-            </ReactRouterDOM.Link>
+            </Link>
             
             <nav className="hidden md:flex items-center space-x-8">
               <NavLinkItem to="/">Início</NavLinkItem>

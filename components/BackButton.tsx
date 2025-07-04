@@ -1,9 +1,9 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Button from './Button';
 
 const BackButton: React.FC<{className?: string}> = ({ className }) => {
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
 
   return (
     <Button

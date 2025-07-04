@@ -168,7 +168,7 @@ async function initializeDatabase() {
     await pool.sql`
       CREATE TABLE IF NOT EXISTS chat_messages (
         id SERIAL PRIMARY KEY,
-        "chatId" TEXT NOT NULL,
+        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
         "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         "senderType" TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -1112,17 +1112,17 @@ export const mockGetMessagesForChat = async (chatId: string, userId: string, use
   await ensureDbInitialized();
   const client = await pool.connect();
   try {
-    // Mark messages as read
+    // Mark messages as read for the current user
     if (userType === UserType.ADMIN) {
-      await client.sql`UPDATE chats SET "adminHasUnread" = FALSE WHERE id = ${chatId} AND "barbershopId" = ${userId};`;
+      await client.sql`UPDATE chats SET "adminHasUnread" = FALSE WHERE id = ${chatId}::uuid AND "barbershopId" = ${userId};`;
     } else {
-      await client.sql`UPDATE chats SET "clientHasUnread" = FALSE WHERE id = ${chatId} AND "clientId" = ${userId};`;
+      await client.sql`UPDATE chats SET "clientHasUnread" = FALSE WHERE id = ${chatId}::uuid AND "clientId" = ${userId};`;
     }
 
     // Fetch messages
     const { rows } = await client.sql`
       SELECT * FROM chat_messages 
-      WHERE "chatId" = ${chatId}
+      WHERE "chatId" = ${chatId}::uuid
       ORDER BY "createdAt" ASC;
     `;
     return rows.map(mapToChatMessage);
@@ -1140,7 +1140,7 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
     // Insert message
     const { rows: messageRows } = await client.sql`
       INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
-      VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, NOW())
+      VALUES (${chatId}::uuid, ${senderId}, ${senderType}, ${content}, NOW())
       RETURNING *;
     `;
 
@@ -1156,7 +1156,7 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
           "adminHasUnread" = "adminHasUnread" OR ${adminHasUnread},
           "deletedByClient" = FALSE, -- Undelete if user sends a new message
           "deletedByAdmin" = FALSE
-      WHERE id = ${chatId};
+      WHERE id = ${chatId}::uuid;
     `;
 
     await client.sql`COMMIT`;
@@ -1171,25 +1171,22 @@ export const mockSendMessage = async (chatId: string, senderId: string, senderTy
 
 export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
   await ensureDbInitialized();
-  const client = await pool.connect();
+  
+  // Use a transaction to ensure atomicity
+  const dbClient = await pool.connect();
   try {
-    await client.sql`BEGIN`;
+    await dbClient.sql`BEGIN`;
 
-    // Step 1: Insert if it doesn't exist. ON CONFLICT does nothing but prevents errors.
-    await client.sql`
-      INSERT INTO chats ("clientId", "barbershopId")
-      VALUES (${clientId}, ${barbershopId})
-      ON CONFLICT ("clientId", "barbershopId") DO NOTHING;
+    // Insert or update the chat. If it exists, undelete it for the client who is initiating.
+    await dbClient.sql`
+      INSERT INTO chats ("clientId", "barbershopId", "deletedByClient")
+      VALUES (${clientId}, ${barbershopId}, FALSE)
+      ON CONFLICT ("clientId", "barbershopId") 
+      DO UPDATE SET "deletedByClient" = FALSE;
     `;
 
-    // Step 2: Undelete the chat for the client, in case they are re-initiating a deleted chat.
-    await client.sql`
-      UPDATE chats SET "deletedByClient" = FALSE 
-      WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
-    `;
-
-    // Step 3: Now, select the complete conversation data. It's guaranteed to exist.
-    const { rows: convoRows } = await pool.sql`
+    // Now that we're sure the chat exists and is visible to the client, fetch its full details.
+    const { rows: convoRows } = await dbClient.sql`
       SELECT 
           c.id, c."clientId", u_client.name as "clientName",
           c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
@@ -1200,31 +1197,33 @@ export const mockCreateOrGetConversation = async (clientId: string, barbershopId
       WHERE c."clientId" = ${clientId} AND c."barbershopId" = ${barbershopId};
     `;
     
-    await client.sql`COMMIT`;
+    await dbClient.sql`COMMIT`;
 
     if (convoRows.length === 0) {
-      throw new Error(`Integridade dos dados: Não foi possível encontrar o perfil da barbearia (ID: ${barbershopId}) após criar a conversa.`);
+      // This should ideally not happen due to the logic above.
+      throw new Error(`Integrity error: Could not find conversation for client ${clientId} and barbershop ${barbershopId}.`);
     }
 
+    const row = convoRows[0];
     return {
-      id: convoRows[0].id,
-      clientId: convoRows[0].clientId,
-      clientName: convoRows[0].clientName,
-      barbershopId: convoRows[0].barbershopId,
-      barbershopName: convoRows[0].barbershopName,
-      barbershopLogoUrl: convoRows[0].barbershopLogoUrl,
-      barbershopPhone: convoRows[0].barbershopPhone,
-      lastMessage: convoRows[0].lastMessage,
-      lastMessageAt: toOptionalIsoString(convoRows[0].lastMessageAt),
-      hasUnread: convoRows[0].hasUnread,
+      id: row.id,
+      clientId: row.clientId,
+      clientName: row.clientName,
+      barbershopId: row.barbershopId,
+      barbershopName: row.barbershopName,
+      barbershopLogoUrl: row.barbershopLogoUrl,
+      barbershopPhone: row.barbershopPhone,
+      lastMessage: row.lastMessage,
+      lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+      hasUnread: row.hasUnread,
     };
 
   } catch (error) {
-    await client.sql`ROLLBACK`;
+    await dbClient.sql`ROLLBACK`;
     console.error("Error in mockCreateOrGetConversation:", error);
-    throw error; // Re-throw the original error to be caught by the UI
+    throw error;
   } finally {
-    client.release();
+    dbClient.release();
   }
 };
 
@@ -1232,9 +1231,9 @@ export const mockDeleteChatForUser = async (chatId: string, userType: UserType):
   await ensureDbInitialized();
   let updateQuery;
   if (userType === 'admin') {
-    updateQuery = pool.sql`UPDATE chats SET "deletedByAdmin" = TRUE WHERE id = ${chatId};`;
+    updateQuery = pool.sql`UPDATE chats SET "deletedByAdmin" = TRUE WHERE id = ${chatId}::uuid;`;
   } else {
-    updateQuery = pool.sql`UPDATE chats SET "deletedByClient" = TRUE WHERE id = ${chatId};`;
+    updateQuery = pool.sql`UPDATE chats SET "deletedByClient" = TRUE WHERE id = ${chatId}::uuid;`;
   }
   const { rowCount } = await updateQuery;
   return rowCount > 0;
