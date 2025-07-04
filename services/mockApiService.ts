@@ -1,8 +1,7 @@
 
 
-
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, FinancialTransaction, ClientLoyaltyStatus, ChatMessage, Conversation } from '../types';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, FinancialTransaction, ClientLoyaltyStatus } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 import { addMinutes, addWeeks } from 'date-fns';
 import { format } from 'date-fns/format';
@@ -139,30 +138,6 @@ async function initializeDatabase() {
         "appointmentId" TEXT REFERENCES appointments(id) ON DELETE SET NULL
       );
     `;
-    
-    await pool.sql`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "lastMessage" TEXT,
-        "lastMessageTimestamp" TIMESTAMP WITH TIME ZONE,
-        "clientUnreadCount" INTEGER NOT NULL DEFAULT 0,
-        "barbershopUnreadCount" INTEGER NOT NULL DEFAULT 0,
-        UNIQUE("clientId", "barbershopId")
-      );
-    `;
-
-    await pool.sql`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-        "conversationId" TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        "receiverId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        message TEXT NOT NULL,
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-      );
-    `;
 
 
     console.log('Schema verification complete.');
@@ -218,7 +193,7 @@ async function initializeDatabase() {
       await pool.sql`
         INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
         ('admin@barbearia.com', 'free', 'active', NOW(), null),
-        ('vip@navalha.com', 'pro', 'active', NOW(), add_months(NOW(), 1));
+        ('vip@navalha.com', 'pro', 'active', NOW() + INTERVAL '1 month');
       `;
 
       console.log('Data seeding complete.');
@@ -396,39 +371,6 @@ const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
   date: toYyyyMmDd(row.date),
   appointmentId: row.appointmentId
 });
-
-const mapToChatMessage = (row: any): ChatMessage => ({
-  id: row.id,
-  conversationId: row.conversationId,
-  senderId: row.senderId,
-  message: row.message,
-  createdAt: toIsoString(row.createdAt),
-});
-
-const mapToClientConversation = (row: any): Conversation => ({
-  id: row.id,
-  otherParty: {
-    id: row.barbershopId,
-    name: row.barbershopName,
-    avatarUrl: row.barbershopLogoUrl,
-    phone: row.barbershopPhone,
-  },
-  lastMessage: row.lastMessage,
-  lastMessageTimestamp: toIsoString(row.lastMessageTimestamp),
-  unreadCount: Number(row.clientUnreadCount),
-});
-
-const mapToBarbershopConversation = (row: any): Conversation => ({
-  id: row.id,
-  otherParty: {
-    id: row.clientId,
-    name: row.clientName,
-  },
-  lastMessage: row.lastMessage,
-  lastMessageTimestamp: toIsoString(row.lastMessageTimestamp),
-  unreadCount: Number(row.barbershopUnreadCount),
-});
-
 
 // --- API Functions ---
 
@@ -822,7 +764,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
@@ -1123,129 +1065,4 @@ export const mockCreateFutureAppointment = async (sourceAppointment: Appointment
     };
 
     return mockCreateAppointment(newAppointmentData);
-};
-
-
-// --- CHAT MODULE ---
-
-export const mockStartOrGetConversation = async (clientId: string, barbershopId: string): Promise<Conversation> => {
-    await ensureDbInitialized();
-    const client = await pool.connect();
-    try {
-        const { rows } = await client.sql`
-            SELECT id FROM conversations WHERE "clientId" = ${clientId} AND "barbershopId" = ${barbershopId};
-        `;
-        if (rows.length > 0) {
-            const convs = await mockGetConversationsForClient(clientId);
-            return convs.find(c => c.id === rows[0].id)!;
-        }
-
-        const { rows: newConvRows } = await client.sql`
-            INSERT INTO conversations ("clientId", "barbershopId", "lastMessage", "lastMessageTimestamp")
-            VALUES (${clientId}, ${barbershopId}, 'Conversa iniciada', NOW())
-            RETURNING id;
-        `;
-        const convs = await mockGetConversationsForClient(clientId);
-        return convs.find(c => c.id === newConvRows[0].id)!;
-    } finally {
-        client.release();
-    }
-}
-
-export const mockGetConversationsForClient = async (clientId: string): Promise<Conversation[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT 
-            c.*, 
-            bp.name as "barbershopName", 
-            bp."logoUrl" as "barbershopLogoUrl",
-            bp.phone as "barbershopPhone"
-        FROM conversations c
-        JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
-        WHERE c."clientId" = ${clientId}
-        ORDER BY c."lastMessageTimestamp" DESC;
-    `;
-    return rows.map(mapToClientConversation);
-};
-
-export const mockGetConversationsForBarbershop = async (barbershopId: string): Promise<Conversation[]> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`
-        SELECT 
-            c.*, 
-            u.name as "clientName"
-        FROM conversations c
-        JOIN users u ON c."clientId" = u.id
-        WHERE c."barbershopId" = ${barbershopId}
-        ORDER BY c."lastMessageTimestamp" DESC;
-    `;
-    return rows.map(mapToBarbershopConversation);
-};
-
-export const mockGetMessagesForConversation = async (conversationId: string, readerId: string): Promise<ChatMessage[]> => {
-    await ensureDbInitialized();
-    const client = await pool.connect();
-    try {
-        await client.sql`BEGIN`;
-        const { rows: userRows } = await client.sql`SELECT type FROM users WHERE id = ${readerId}`;
-        if (userRows.length === 0) throw new Error("Reader not found");
-        const readerType = userRows[0].type;
-
-        if (readerType === 'client') {
-            await client.sql`UPDATE conversations SET "clientUnreadCount" = 0 WHERE id = ${conversationId}`;
-        } else if (readerType === 'admin') {
-            await client.sql`UPDATE conversations SET "barbershopUnreadCount" = 0 WHERE id = ${conversationId}`;
-        }
-
-        const { rows } = await client.sql`
-            SELECT * FROM chat_messages WHERE "conversationId" = ${conversationId} ORDER BY "createdAt" ASC;
-        `;
-        await client.sql`COMMIT`;
-        return rows.map(mapToChatMessage);
-    } catch (e) {
-        await client.sql`ROLLBACK`;
-        throw e;
-    } finally {
-        client.release();
-    }
-};
-
-export const mockSendMessage = async (data: { conversationId: string; senderId: string; receiverId: string; message: string }): Promise<ChatMessage> => {
-    await ensureDbInitialized();
-    const { conversationId, senderId, receiverId, message } = data;
-    const client = await pool.connect();
-    try {
-        await client.sql`BEGIN`;
-
-        const { rows: senderRows } = await client.sql`SELECT type FROM users WHERE id = ${senderId}`;
-        const senderType = senderRows[0].type;
-        
-        let unreadUpdateQuery;
-        if (senderType === 'client') {
-            unreadUpdateQuery = client.sql`"barbershopUnreadCount" = "barbershopUnreadCount" + 1`;
-        } else {
-            unreadUpdateQuery = client.sql`"clientUnreadCount" = "clientUnreadCount" + 1`;
-        }
-
-        await client.sql`
-            UPDATE conversations 
-            SET "lastMessage" = ${message}, "lastMessageTimestamp" = NOW(), ${unreadUpdateQuery}
-            WHERE id = ${conversationId};
-        `;
-
-        const { rows: messageRows } = await client.sql`
-            INSERT INTO chat_messages ("conversationId", "senderId", "receiverId", message)
-            VALUES (${conversationId}, ${senderId}, ${receiverId}, ${message})
-            RETURNING *;
-        `;
-
-        await client.sql`COMMIT`;
-        return mapToChatMessage(messageRows[0]);
-
-    } catch(e) {
-        await client.sql`ROLLBACK`;
-        throw e;
-    } finally {
-        client.release();
-    }
 };
