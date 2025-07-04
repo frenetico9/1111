@@ -135,3 +135,24 @@ export interface ClientLoyaltyStatus {
   barbershopLogoUrl?: string;
   completedCount: number;
 }
+
+// --- NEW CHAT TYPES ---
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderType: UserType;
+  content: string;
+  createdAt: string; // ISO date string
+}
+
+// Represents a conversation for the admin view
+export interface ChatConversation {
+  id: string; // The ID of the chat itself
+  clientId: string;
+  clientName: string;
+  barbershopId: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  hasUnread: boolean; // This will be true if there are unread messages for the admin
+}

@@ -1,7 +1,8 @@
 
 
+
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, FinancialTransaction, ClientLoyaltyStatus } from '../types';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, FinancialTransaction, ClientLoyaltyStatus, ChatConversation, ChatMessage } from '../types';
 import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 import { addMinutes, addWeeks } from 'date-fns';
 import { format } from 'date-fns/format';
@@ -139,68 +140,112 @@ async function initializeDatabase() {
       );
     `;
 
+     await pool.sql`
+      CREATE TABLE IF NOT EXISTS chats (
+        id TEXT PRIMARY KEY,
+        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+        "lastMessageAt" TIMESTAMP WITH TIME ZONE,
+        "deletedForAdmin" BOOLEAN DEFAULT false,
+        "deletedForClient" BOOLEAN DEFAULT false,
+        UNIQUE("clientId", "barbershopId")
+      );
+    `;
+    
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        "chatId" TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        "senderId" TEXT NOT NULL,
+        "senderType" TEXT NOT NULL,
+        content TEXT NOT NULL,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+        "isRead" BOOLEAN DEFAULT false
+      );
+    `;
+
 
     console.log('Schema verification complete.');
 
     // Check if data needs to be seeded by looking for a specific seed entry.
     const { rows: seedCheck } = await pool.sql`SELECT id FROM users WHERE email = 'cliente@exemplo.com'`;
+    
+    const client = await pool.connect();
+    try {
+        if (seedCheck.length === 0) {
+          console.log('Database is empty. Seeding initial data...');
+          
+          await client.sql`
+            INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash) VALUES
+            ('cliente@exemplo.com', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
+            ('admin@barbearia.com', 'admin@barbearia.com', 'admin', 'Carlos Dono', '(21) 91234-5678', 'Barbearia do Carlos', 'Rua das Tesouras, 123, Rio de Janeiro', 'password123'),
+            ('vip@navalha.com', 'vip@navalha.com', 'admin', 'Ana Estilista', '(31) 99999-8888', 'Navalha VIP Club', 'Avenida Principal, 789, Belo Horizonte', 'password123');
+          `;
+          
+          await client.sql`
+            INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours") VALUES
+            ('admin@barbearia.com', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
+            ('vip@navalha.com', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
+          `;
+      
+          await client.sql`
+            INSERT INTO services (id, "barbershopId", name, price, duration, "isActive", description) VALUES
+            ('service1', 'admin@barbearia.com', 'Corte Masculino', 50, 45, true, 'Corte clássico ou moderno, tesoura e máquina.'),
+            ('service2', 'admin@barbearia.com', 'Barba Tradicional', 35, 30, true, 'Toalha quente, navalha e produtos premium.'),
+            ('service3', 'admin@barbearia.com', 'Combo Corte + Barba', 75, 75, true, 'O pacote completo para um visual impecável.'),
+            ('service4', 'admin@barbearia.com', 'Hidratação Capilar', 40, 30, false, 'Tratamento para fortalecer e dar brilho.'),
+            ('service5', 'vip@navalha.com', 'Corte VIP', 120, 60, true, 'Atendimento exclusivo com consultoria de imagem.'),
+            ('service6', 'vip@navalha.com', 'Barboterapia Premium', 90, 45, true, 'Ritual completo de cuidados para a barba.');
+          `;
+      
+          await client.sql`
+            INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices") VALUES
+            ('barber1_admin@barbearia.com', 'admin@barbearia.com', 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{"service1","service3"}'),
+            ('barber2_admin@barbearia.com', 'admin@barbearia.com', 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{"service1","service2"}'),
+            ('barber1_vip@navalha.com', 'vip@navalha.com', 'Mestre Arthur', ${JSON.stringify([{dayOfWeek:1, start:'10:00', end:'20:00'}])}, '{"service5","service6"}');
+          `;
+          
+          await client.sql`
+            INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt", "sourceAppointmentId") VALUES
+            ('appt1', 'cliente@exemplo.com', 'admin@barbearia.com', 'service1', 'barber1_admin@barbearia.com', CURRENT_DATE, '10:00', 'scheduled', NOW(), NULL),
+            ('appt2', 'cliente@exemplo.com', 'admin@barbearia.com', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days', NULL),
+            ('appt3', 'cliente@exemplo.com', 'vip@navalha.com', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW(), NULL);
+          `;
+          
+          await client.sql`
+            INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt") VALUES
+            ('review1', 'appt2', 'cliente@exemplo.com', 'admin@barbearia.com', 5, 'Barba impecável, atendimento nota 10!', NOW() - INTERVAL '1 day');
+          `;
+          
+          await client.sql`
+            INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
+            ('admin@barbearia.com', 'free', 'active', NOW(), null),
+            ('vip@navalha.com', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
+          `;
 
-    if (seedCheck.length === 0) {
-      console.log('Database is empty. Seeding initial data...');
-      
-      await pool.sql`
-        INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash) VALUES
-        ('cliente@exemplo.com', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
-        ('admin@barbearia.com', 'admin@barbearia.com', 'admin', 'Carlos Dono', '(21) 91234-5678', 'Barbearia do Carlos', 'Rua das Tesouras, 123, Rio de Janeiro', 'password123'),
-        ('vip@navalha.com', 'vip@navalha.com', 'admin', 'Ana Estilista', '(31) 99999-8888', 'Navalha VIP Club', 'Avenida Principal, 789, Belo Horizonte', 'password123');
-      `;
-      
-      await pool.sql`
-        INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours") VALUES
-        ('admin@barbearia.com', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
-        ('vip@navalha.com', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
-      `;
-  
-      await pool.sql`
-        INSERT INTO services (id, "barbershopId", name, price, duration, "isActive", description) VALUES
-        ('service1', 'admin@barbearia.com', 'Corte Masculino', 50, 45, true, 'Corte clássico ou moderno, tesoura e máquina.'),
-        ('service2', 'admin@barbearia.com', 'Barba Tradicional', 35, 30, true, 'Toalha quente, navalha e produtos premium.'),
-        ('service3', 'admin@barbearia.com', 'Combo Corte + Barba', 75, 75, true, 'O pacote completo para um visual impecável.'),
-        ('service4', 'admin@barbearia.com', 'Hidratação Capilar', 40, 30, false, 'Tratamento para fortalecer e dar brilho.'),
-        ('service5', 'vip@navalha.com', 'Corte VIP', 120, 60, true, 'Atendimento exclusivo com consultoria de imagem.'),
-        ('service6', 'vip@navalha.com', 'Barboterapia Premium', 90, 45, true, 'Ritual completo de cuidados para a barba.');
-      `;
-  
-      await pool.sql`
-        INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices") VALUES
-        ('barber1_admin@barbearia.com', 'admin@barbearia.com', 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{"service1","service3"}'),
-        ('barber2_admin@barbearia.com', 'admin@barbearia.com', 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{"service1","service2"}'),
-        ('barber1_vip@navalha.com', 'vip@navalha.com', 'Mestre Arthur', ${JSON.stringify([{dayOfWeek:1, start:'10:00', end:'20:00'}])}, '{"service5","service6"}');
-      `;
-      
-      await pool.sql`
-        INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt", "sourceAppointmentId") VALUES
-        ('appt1', 'cliente@exemplo.com', 'admin@barbearia.com', 'service1', 'barber1_admin@barbearia.com', CURRENT_DATE, '10:00', 'scheduled', NOW(), NULL),
-        ('appt2', 'cliente@exemplo.com', 'admin@barbearia.com', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days', NULL),
-        ('appt3', 'cliente@exemplo.com', 'vip@navalha.com', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW(), NULL);
-      `;
-      
-      await pool.sql`
-        INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt") VALUES
-        ('review1', 'appt2', 'cliente@exemplo.com', 'admin@barbearia.com', 5, 'Barba impecável, atendimento nota 10!', NOW() - INTERVAL '1 day');
-      `;
-      
-      await pool.sql`
-        INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
-        ('admin@barbearia.com', 'free', 'active', NOW(), null),
-        ('vip@navalha.com', 'pro', 'active', NOW() + INTERVAL '1 month');
-      `;
+          await client.sql`
+            INSERT INTO chats (id, "clientId", "barbershopId", "createdAt", "lastMessageAt") VALUES
+            ('chat1', 'cliente@exemplo.com', 'admin@barbearia.com', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 hour')
+            ON CONFLICT DO NOTHING;
+          `;
 
-      console.log('Data seeding complete.');
-    } else {
-      console.log('Database already seeded. Skipping seeding.');
+          await client.sql`
+            INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt", "isRead") VALUES
+            ('msg1', 'chat1', 'cliente@exemplo.com', 'client', 'Olá, tudo bem? Gostaria de saber se vocês têm horário para sábado.', NOW() - INTERVAL '2 hours', true),
+            ('msg2', 'chat1', 'admin@barbearia.com', 'admin', 'Olá! Temos sim. Qual horário seria bom para você?', NOW() - INTERVAL '1 hour 50 minutes', true),
+            ('msg3', 'chat1', 'cliente@exemplo.com', 'client', 'Pode ser às 10h?', NOW() - INTERVAL '1 hour', false)
+            ON CONFLICT (id) DO NOTHING;
+          `;
+          
+          console.log('Data seeding complete.');
+        } else {
+          console.log('Database already seeded. Skipping seeding.');
+        }
+    } finally {
+        client.release();
     }
-
+    
     isDbInitialized = true;
   } catch (e) {
     console.error('Database initialization failed.', e);
@@ -764,7 +809,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
@@ -1065,4 +1110,155 @@ export const mockCreateFutureAppointment = async (sourceAppointment: Appointment
     };
 
     return mockCreateAppointment(newAppointmentData);
+};
+
+// --- CHAT ---
+
+export const mockGetUnreadCount = async (userId: string, userType: UserType): Promise<number> => {
+    await ensureDbInitialized();
+    let query;
+    if (userType === 'admin') {
+        query = pool.sql`
+            SELECT COUNT(DISTINCT c.id) 
+            FROM chats c
+            JOIN chat_messages m ON c.id = m."chatId"
+            WHERE c."barbershopId" = ${userId} 
+              AND c."deletedForAdmin" = false
+              AND m."senderType" = 'client' 
+              AND m."isRead" = false;
+        `;
+    } else { // client
+        query = pool.sql`
+            SELECT COUNT(DISTINCT c.id) 
+            FROM chats c
+            JOIN chat_messages m ON c.id = m."chatId"
+            WHERE c."clientId" = ${userId} 
+              AND c."deletedForClient" = false
+              AND m."senderType" = 'admin' 
+              AND m."isRead" = false;
+        `;
+    }
+    const { rows } = await query;
+    return Number(rows[0].count);
+};
+
+
+export const mockGetAdminConversations = async (barbershopId: string): Promise<ChatConversation[]> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`
+        SELECT 
+            c.id,
+            c."clientId",
+            u.name as "clientName",
+            c."barbershopId",
+            (SELECT content FROM chat_messages WHERE "chatId" = c.id ORDER BY "createdAt" DESC LIMIT 1) as "lastMessage",
+            c."lastMessageAt",
+            (SELECT EXISTS (
+                SELECT 1 FROM chat_messages 
+                WHERE "chatId" = c.id AND "senderType" = 'client' AND "isRead" = false
+            )) as "hasUnread"
+        FROM chats c
+        JOIN users u ON c."clientId" = u.id
+        WHERE c."barbershopId" = ${barbershopId} AND c."deletedForAdmin" = false
+        ORDER BY c."lastMessageAt" DESC;
+    `;
+
+    return rows.map(row => ({
+        id: row.id,
+        clientId: row.clientId,
+        clientName: row.clientName,
+        barbershopId: row.barbershopId,
+        lastMessage: row.lastmessage,
+        lastMessageAt: row.lastmessageat ? toIsoString(row.lastmessageat) : undefined,
+        hasUnread: row.hasunread
+    }));
+};
+
+export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<ChatMessage[]> => {
+    await ensureDbInitialized();
+    const client = await pool.connect();
+    try {
+        await client.sql`BEGIN`;
+        // Mark messages sent by the other party as read
+        const otherUserType = userType === 'admin' ? 'client' : 'admin';
+        await client.sql`
+            UPDATE chat_messages
+            SET "isRead" = true
+            WHERE "chatId" = ${chatId} AND "senderType" = ${otherUserType};
+        `;
+
+        // Fetch all messages
+        const { rows } = await client.sql`
+            SELECT * FROM chat_messages
+            WHERE "chatId" = ${chatId}
+            ORDER BY "createdAt" ASC;
+        `;
+        await client.sql`COMMIT`;
+        return rows.map(row => ({
+            id: row.id,
+            chatId: row.chatId,
+            senderId: row.senderId,
+            senderType: row.senderType,
+            content: row.content,
+            createdAt: toIsoString(row.createdAt),
+        }));
+    } catch (e) {
+        await client.sql`ROLLBACK`;
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
+    await ensureDbInitialized();
+    const newId = `msg_${Date.now()}`;
+    const createdAt = new Date();
+
+    const client = await pool.connect();
+    try {
+        await client.sql`BEGIN`;
+        // Insert new message
+        const { rows } = await client.sql`
+            INSERT INTO chat_messages (id, "chatId", "senderId", "senderType", content, "createdAt", "isRead")
+            VALUES (${newId}, ${chatId}, ${senderId}, ${senderType}, ${content}, ${createdAt.toISOString()}, false)
+            RETURNING *;
+        `;
+        
+        // Update chat's lastMessageAt
+        await client.sql`
+            UPDATE chats
+            SET "lastMessageAt" = ${createdAt.toISOString()}
+            WHERE id = ${chatId};
+        `;
+        
+        await client.sql`COMMIT`;
+        
+        const createdMessage = rows[0];
+        return {
+            id: createdMessage.id,
+            chatId: createdMessage.chatId,
+            senderId: createdMessage.senderId,
+            senderType: createdMessage.senderType,
+            content: createdMessage.content,
+            createdAt: toIsoString(createdMessage.createdAt),
+        };
+    } catch (e) {
+        await client.sql`ROLLBACK`;
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
+export const mockDeleteChatForUser = async (conversationId: string, userType: UserType): Promise<boolean> => {
+    await ensureDbInitialized();
+    let query;
+    if (userType === 'admin') {
+      query = pool.sql`UPDATE chats SET "deletedForAdmin" = true WHERE id = ${conversationId}`;
+    } else {
+      query = pool.sql`UPDATE chats SET "deletedForClient" = true WHERE id = ${conversationId}`;
+    }
+    const { rowCount } = await query;
+    return rowCount > 0;
 };

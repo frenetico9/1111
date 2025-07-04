@@ -128,6 +128,8 @@ const App: React.FC = () => {
             <Route path="team" element={<AdminTeamPage />} />
             <Route path="clients" element={<AdminClientsPage />} />
             <Route path="reviews" element={<AdminReviewsPage />} />
+            <Route path="chat" element={<AdminChatPage />} />
+            <Route path="chat/:clientId" element={<AdminChatPage />} />
             <Route path="subscription" element={<AdminSubscriptionPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
           </Route>

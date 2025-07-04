@@ -67,6 +67,10 @@ const BarbershopPublicPage: React.FC = () => {
   if (error) return <div className="text-center text-red-600 py-10 text-xl bg-white p-8 rounded-lg shadow-md">{error} <Link to="/"><Button variant="primary" className="mt-6">Voltar para Início</Button></Link></div>;
   if (!barbershop) return <div className="text-center text-gray-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Barbearia não encontrada.</div>;
 
+  const whatsappNumber = barbershop.phone ? `55${barbershop.phone.replace(/\D/g, '')}` : '';
+  const whatsappMessage = encodeURIComponent(`Olá, ${barbershop.name}! Vi sua barbearia no Navalha Digital e gostaria de mais informações.`);
+  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
       {/* Header Section */}
@@ -166,6 +170,27 @@ const BarbershopPublicPage: React.FC = () => {
                         ))}
                     </ul>
                 </div>
+
+                {barbershop.phone && (
+                  <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue">
+                      <h3 className="text-xl font-semibold text-primary-blue mb-4 flex items-center">
+                          <span className="material-icons-outlined mr-2">info</span>
+                          Informações
+                      </h3>
+                      <a 
+                          href={whatsappUrl}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="block w-full"
+                          aria-label="Conversar com a barbearia pelo WhatsApp"
+                      >
+                          <Button variant="primary" fullWidth leftIcon={<span className="material-icons-outlined">chat</span>}>
+                              Conversar com a barbearia
+                          </Button>
+                      </a>
+                  </div>
+                )}
+
                 {/* Placeholder for Map - Could use an iframe or image */}
                 <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue">
                     <h3 className="text-xl font-semibold text-primary-blue mb-3 flex items-center">

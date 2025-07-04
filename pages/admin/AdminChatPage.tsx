@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -140,10 +141,9 @@ const AdminChatPage: React.FC = () => {
             setMessages([]);
 
             try {
-                const convoToSelect = conversations.find(c => c.clientId === clientIdFromUrl);
+                let convoToSelect = conversations.find(c => c.clientId === clientIdFromUrl);
 
                 if (!convoToSelect) {
-                    // Admins can't create conversations, they only reply. If not found, it's an error.
                     addNotification({ message: "Conversa não encontrada.", type: "error" });
                     navigate('/admin/chat', { replace: true });
                     return;

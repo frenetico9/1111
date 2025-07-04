@@ -10,7 +10,8 @@ import {
   mockGetBarbershopSubscription, 
   mockUpdateBarbershopSubscription,
   mockUpdateClientProfile,
-  mockGetUserById
+  mockGetUserById,
+  mockGetUnreadCount
 } from '../services/mockApiService';
 import { useNotification } from './NotificationContext'; // Re-import if moved or for direct use
 
@@ -27,6 +28,8 @@ interface AuthContextType {
   updateClientProfile: (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone'>>) => Promise<boolean>;
   updateSubscription: (planId: SubscriptionPlanTier) => Promise<boolean>;
   refreshUserData: () => Promise<void>; // To reload user-specific data
+  unreadChatCount: number;
+  refreshUnreadCount: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [barbershopProfile, setBarbershopProfile] = useState<BarbershopProfile | null>(null);
   const [barbershopSubscription, setBarbershopSubscription] = useState<BarbershopSubscription | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const { addNotification } = useNotification();
 
   const handleLogout = useCallback(() => {
@@ -48,9 +52,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setBarbershopProfile(null);
     setBarbershopSubscription(null);
+    setUnreadChatCount(0);
     addNotification({ message: 'Logout realizado com sucesso.', type: 'info' });
   }, [addNotification]);
 
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (user) {
+        try {
+            const count = await mockGetUnreadCount(user.id, user.type);
+            setUnreadChatCount(count);
+        } catch (error) {
+            console.error("Failed to refresh unread chat count:", error);
+        }
+    }
+  }, [user]);
 
   const loadUserDataForAdmin = useCallback(async (adminUser: User) => {
     if (adminUser.type === UserType.ADMIN) {
@@ -76,6 +92,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     initializeAuth();
   }, [loadUserDataForAdmin]);
+  
+  useEffect(() => {
+      if(user) {
+          refreshUnreadCount();
+      }
+  }, [user, refreshUnreadCount]);
 
   const handleAuthSuccess = async (loggedInUser: User): Promise<User | null> => {
     localStorage.setItem('nav_user_NavalhaDigital', JSON.stringify(loggedInUser));
@@ -241,6 +263,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateClientProfile: updateClientProfileInternal,
         updateSubscription: updateSubscriptionInternal, 
         refreshUserData: refreshUserDataInternal,
+        unreadChatCount,
+        refreshUnreadCount
     }}>
       {children}
     </AuthContext.Provider>
