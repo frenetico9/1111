@@ -12,9 +12,7 @@ import {
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format } from 'date-fns/format';
-import { parseISO } from 'date-fns/parseISO';
-import { formatDistance } from 'date-fns/formatDistance';
+import { format, parseISO, formatDistance } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -157,7 +155,7 @@ const AdminChatPage: React.FC = () => {
                     await refreshUnreadCount();
                 }
             } catch (error) {
-                addNotification({ message: "Falha ao carregar a conversa.", type: "error" });
+                addNotification({ message: (error as Error).message || "Falha ao carregar a conversa.", type: "error" });
                 navigate('/admin/chat', { replace: true });
             } finally {
                 setLoadingMessages(false);
