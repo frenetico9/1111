@@ -11,7 +11,8 @@ import {
   mockUpdateBarbershopSubscription,
   mockUpdateClientProfile,
   mockGetClientConversations,
-  mockGetAdminConversations
+  mockGetAdminConversations,
+  mockGetUserById
 } from '../services/mockApiService';
 import { useNotification } from './NotificationContext'; // Re-import if moved or for direct use
 
@@ -26,7 +27,7 @@ interface AuthContextType {
   signupBarbershop: (barbershopName: string, responsible: string, email: string, phone: string, address: string, pass: string) => Promise<User | null>;
   logout: () => void;
   updateBarbershopProfile: (profileData: Partial<BarbershopProfile>) => Promise<boolean>;
-  updateClientProfile: (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone' | 'email'>>) => Promise<boolean>;
+  updateClientProfile: (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone'>>) => Promise<boolean>;
   updateSubscription: (planId: SubscriptionPlanTier) => Promise<boolean>;
   refreshUserData: () => Promise<void>; // To reload user-specific data
   refreshUnreadCount: () => Promise<void>;
@@ -45,6 +46,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const { addNotification } = useNotification();
+
+  const handleLogout = useCallback(() => {
+    mockLogout();
+    localStorage.removeItem('nav_user_NavalhaDigital');
+    setUser(null);
+    setBarbershopProfile(null);
+    setBarbershopSubscription(null);
+    setUnreadChatCount(0);
+    addNotification({ message: 'Logout realizado com sucesso.', type: 'info' });
+  }, [addNotification]);
+
 
   const refreshUnreadCount = useCallback(async () => {
     const storedUser = localStorage.getItem('nav_user_NavalhaDigital');
@@ -158,15 +170,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    mockLogout(); // Simulate server logout
-    localStorage.removeItem('nav_user_NavalhaDigital');
-    setUser(null);
-    setBarbershopProfile(null);
-    setBarbershopSubscription(null);
-    setUnreadChatCount(0);
-    addNotification({ message: 'Logout realizado com sucesso.', type: 'info' });
-  };
+  const refreshUserDataInternal = useCallback(async () => {
+    if (!user) {
+      handleLogout();
+      return;
+    }
+    setLoading(true);
+    try {
+      const updatedUser = await mockGetUserById(user.id);
+      if (updatedUser) {
+        setUser(updatedUser);
+        localStorage.setItem('nav_user_NavalhaDigital', JSON.stringify(updatedUser));
+        if (updatedUser.type === UserType.ADMIN) {
+          await loadUserDataForAdmin(updatedUser);
+        }
+        await refreshUnreadCount();
+      } else {
+        // User not found in DB, probably deleted. Log out.
+        handleLogout();
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+      // Don't log out, maybe a temporary network issue. Keep stale data.
+    } finally {
+      setLoading(false);
+    }
+  }, [user, loadUserDataForAdmin, refreshUnreadCount, handleLogout]);
 
   const updateBarbershopProfileInternal = async (profileData: Partial<BarbershopProfile>) => {
     if (user && user.type === UserType.ADMIN) {
@@ -189,7 +218,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return false;
   };
 
-  const updateClientProfileInternal = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone' | 'email'>>) => {
+  const updateClientProfileInternal = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone'>>) => {
     if (user && user.id === clientId && user.type === UserType.CLIENT) {
         setLoading(true);
         try {
@@ -231,38 +260,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return false;
   };
 
-  const refreshUserDataInternal = useCallback(async () => {
-    if (user) {
-      setLoading(true);
-      const storedUser = localStorage.getItem('nav_user_NavalhaDigital'); // Re-fetch from storage to ensure consistency
-      if (storedUser) {
-          const refreshedUser: User = JSON.parse(storedUser);
-           // If user details were updated (e.g. name from profile), update user state
-           const updatedCoreUser = await mockLogin(refreshedUser.email, "mockPassword"); // Simulate re-fetching user core data
-           if(updatedCoreUser) {
-             setUser(updatedCoreUser);
-             localStorage.setItem('nav_user_NavalhaDigital', JSON.stringify(updatedCoreUser)); // Update storage
-             if (updatedCoreUser.type === UserType.ADMIN) {
-               await loadUserDataForAdmin(updatedCoreUser);
-             }
-           } else { // Fallback if mockLogin fails for some reason
-             setUser(refreshedUser);
-             if (refreshedUser.type === UserType.ADMIN) {
-               await loadUserDataForAdmin(refreshedUser);
-             }
-           }
-      } else {
-        // User was removed from storage, effectively logged out
-        setUser(null);
-        setBarbershopProfile(null);
-        setBarbershopSubscription(null);
-      }
-      await refreshUnreadCount();
-      setLoading(false);
-    }
-  }, [user, loadUserDataForAdmin, refreshUnreadCount]);
-
-
   return (
     <AuthContext.Provider value={{ 
         user, 
@@ -273,7 +270,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         login, 
         signupClient, 
         signupBarbershop, 
-        logout, 
+        logout: handleLogout, 
         updateBarbershopProfile: updateBarbershopProfileInternal, 
         updateClientProfile: updateClientProfileInternal,
         updateSubscription: updateSubscriptionInternal, 
