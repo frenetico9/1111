@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -12,7 +13,9 @@ import {
 } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
-import { format, parseISO, formatDistance } from 'date-fns';
+import { format } from 'date-fns/format';
+import { formatDistance } from 'date-fns/formatDistance';
+import { parseISO } from 'date-fns/parseISO';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
