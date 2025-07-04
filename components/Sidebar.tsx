@@ -37,7 +37,7 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
-  const { user, barbershopProfile, barbershopSubscription, unreadChatCount } = useAuth();
+  const { user, barbershopProfile, barbershopSubscription } = useAuth();
   const isPro = barbershopSubscription?.planId === SubscriptionPlanTier.PRO;
 
   // Construct the correct URL for the public page. The user's ID is the barbershop's ID for an admin.
@@ -78,14 +78,6 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
 
         <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}><span>Agendamentos</span></SidebarNavLink>
         <SidebarNavLink to="/admin/financial" iconName="account_balance_wallet" onClick={onLinkClick}><span>Financeiro</span></SidebarNavLink>
-        <SidebarNavLink to="/admin/chat" iconName="chat" onClick={onLinkClick}>
-            <span>Chat</span>
-            {unreadChatCount > 0 && (
-                <span className="bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                     {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                </span>
-            )}
-        </SidebarNavLink>
         <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}><span>Serviços</span></SidebarNavLink>
         <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}><span>Equipe</span></SidebarNavLink>
         <SidebarNavLink to="/admin/clients" iconName="people_alt" onClick={onLinkClick}><span>Clientes</span></SidebarNavLink>
