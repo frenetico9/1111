@@ -26,10 +26,9 @@ const ClientProfilePage: React.FC = () => {
       try {
         let profileUpdated = false;
         // Update basic info if changed
-        if (formValues.name !== user.name || formValues.email !== user.email || formValues.phone !== user.phone) {
+        if (formValues.name !== user.name || formValues.phone !== user.phone) {
             const success = await updateClientProfile(user.id, {
                 name: formValues.name,
-                email: formValues.email, // Assuming email can be updated, might need verification in real app
                 phone: formValues.phone,
             });
             if (success) {
@@ -126,13 +125,13 @@ const ClientProfilePage: React.FC = () => {
               disabled={isSubmitting}
             />
             <Input
-              label="E-mail"
+              label="E-mail (Login)"
               name="email"
               type="email"
               value={values.email}
               onChange={handleChange}
               error={errors.email}
-              disabled={isSubmitting} // Email usually not editable or requires verification, but mock allows
+              disabled={true} // Email is the ID and cannot be changed.
             />
             <Input
               label="Telefone"
