@@ -20,8 +20,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     onAppointmentClick,
     onEmptySlotClick
 }) => {
-    const weekStartsOn = ptBR.options?.weekStartsOn ?? 0;
-    const weekStart = startOfWeek(currentDate, { weekStartsOn });
+    const weekStart = startOfWeek(currentDate, { locale: ptBR });
     const days = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
 
     const timeSlots = Array.from({ length: 28 }, (_, i) => { // 8:00 to 21:30
