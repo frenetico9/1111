@@ -446,6 +446,15 @@ const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
 // --- API Functions ---
 
 // --- User & Auth ---
+export const mockGetUserById = async (userId: string): Promise<User | null> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`SELECT * FROM users WHERE id = ${userId}`;
+    if (rows.length > 0) {
+        return mapToUser(rows[0]);
+    }
+    return null;
+}
+
 export const mockLogin = async (email: string, pass: string): Promise<User | null> => {
   await ensureDbInitialized();
   const lowercasedEmail = email.toLowerCase();
@@ -519,13 +528,12 @@ export const mockSignupBarbershop = async (barbershopName: string, responsible: 
   }
 };
 
-export const mockUpdateClientProfile = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone' | 'email'>>): Promise<boolean> => {
+export const mockUpdateClientProfile = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone'>>): Promise<boolean> => {
   await ensureDbInitialized();
-  // In a real app, email change would trigger a verification flow.
-  const lowercasedEmail = profileData.email?.toLowerCase();
+  // Email is the user identifier and CANNOT be changed here.
   const { rowCount } = await pool.sql`
     UPDATE users 
-    SET name = ${profileData.name}, phone = ${profileData.phone}, email = ${lowercasedEmail}
+    SET name = ${profileData.name}, phone = ${profileData.phone}
     WHERE id = ${clientId} AND type = 'client';
   `;
   return rowCount > 0;
@@ -559,35 +567,49 @@ export const mockGetBarbershopProfile = async (barbershopId: string): Promise<Ba
 
 export const mockUpdateBarbershopProfile = async (barbershopId: string, profileData: Partial<BarbershopProfile>): Promise<boolean> => {
   await ensureDbInitialized();
+  // IMPORTANT: The email is the primary identifier (ID) and should not be changed here.
+  // This function is only for updating profile information.
   const { name, responsibleName, phone, address, description, logoUrl, coverImageUrl, workingHours } = profileData;
-  const lowercasedEmail = profileData.email?.toLowerCase();
 
-  const { rowCount } = await pool.sql`
-    UPDATE barbershop_profiles
-    SET 
-      name = ${name}, 
-      "responsibleName" = ${responsibleName},
-      phone = ${phone},
-      address = ${address},
-      description = ${description},
-      email = ${lowercasedEmail},
-      "logoUrl" = ${logoUrl},
-      "coverImageUrl" = ${coverImageUrl},
-      "workingHours" = ${JSON.stringify(workingHours)}
-    WHERE id = ${barbershopId};
-  `;
-  // Also update user table which might hold some initial data
-   await pool.sql`
-    UPDATE users
-    SET 
-      name = ${responsibleName},
-      "barbershopName" = ${name},
-      phone = ${phone},
-      email = ${lowercasedEmail},
-      address = ${address}
-    WHERE id = ${barbershopId};
-  `;
-  return rowCount > 0;
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
+
+    // Update barbershop_profiles table
+    const { rowCount } = await client.sql`
+      UPDATE barbershop_profiles
+      SET 
+        name = ${name}, 
+        "responsibleName" = ${responsibleName},
+        phone = ${phone},
+        address = ${address},
+        description = ${description},
+        "logoUrl" = ${logoUrl},
+        "coverImageUrl" = ${coverImageUrl},
+        "workingHours" = ${JSON.stringify(workingHours)}
+      WHERE id = ${barbershopId};
+    `;
+
+    // Also update denormalized data in the users table
+    await client.sql`
+      UPDATE users
+      SET 
+        name = ${responsibleName},
+        "barbershopName" = ${name},
+        phone = ${phone},
+        address = ${address}
+      WHERE id = ${barbershopId} AND type = 'admin';
+    `;
+
+    await client.sql`COMMIT`;
+    return rowCount > 0;
+  } catch (e) {
+    await client.sql`ROLLBACK`;
+    console.error("Failed to update barbershop profile:", e);
+    throw e; // re-throw the error
+  } finally {
+    client.release();
+  }
 };
 
 // --- Services ---
