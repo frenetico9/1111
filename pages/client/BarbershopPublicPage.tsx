@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { BarbershopProfile, Service, Review as ReviewType, UserType } from '../../types';
-import { mockGetBarbershopProfile, mockGetServicesForBarbershop, mockGetReviewsForBarbershop } from '../../services/mockApiService';
+import { mockGetBarbershopProfile, mockGetServicesForBarbershop, mockGetReviewsForBarbershop, mockStartOrGetConversation } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ServiceCard from '../../components/ServiceCard';
 import ReviewCard from '../../components/ReviewCard';
@@ -10,16 +10,20 @@ import { DAYS_OF_WEEK } from '../../constants';
 import StarRating from '../../components/StarRating';
 import BackButton from '../../components/BackButton';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const BarbershopPublicPage: React.FC = () => {
   const { barbershopId } = useParams<{ barbershopId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addNotification } = useNotification();
 
   const [barbershop, setBarbershop] = useState<BarbershopProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!barbershopId) {
@@ -57,6 +61,32 @@ const BarbershopPublicPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleStartChat = async () => {
+    if (!user) {
+        addNotification({ message: 'Você precisa estar logado para iniciar uma conversa.', type: 'info' });
+        navigate('/login');
+        return;
+    }
+    if (user.type !== UserType.CLIENT) {
+        addNotification({ message: 'Apenas clientes podem iniciar uma conversa.', type: 'warning' });
+        return;
+    }
+    if (!barbershop) return;
+
+    setIsStartingChat(true);
+    try {
+        const conversation = await mockStartOrGetConversation(user.id, barbershop.id);
+        if (conversation) {
+            navigate(`/client/chat/${conversation.id}`);
+        }
+    } catch (error) {
+        addNotification({ message: `Erro ao iniciar chat: ${(error as Error).message}`, type: 'error' });
+    } finally {
+        setIsStartingChat(false);
+    }
+  };
+
 
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 0;
@@ -151,11 +181,29 @@ const BarbershopPublicPage: React.FC = () => {
             {/* Sidebar - Working Hours & Location */}
             <aside className="md:col-span-4 space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue sticky top-24"> {/* Sticky sidebar */}
-                    <h3 className="text-xl font-semibold text-primary-blue mb-3 flex items-center">
-                    <span className="material-icons-outlined mr-2">schedule</span>
-                    Horário de Funcionamento
+                    <h3 className="text-xl font-semibold text-primary-blue mb-4 flex items-center">
+                    <span className="material-icons-outlined mr-2">info</span>
+                    Informações
                     </h3>
-                    <ul className="text-gray-700 space-y-1.5 text-sm">
+
+                    {user?.type === 'client' && (
+                        <Button 
+                            variant='primary' 
+                            fullWidth 
+                            className='mb-4' 
+                            leftIcon={<span className="material-icons-outlined">chat</span>}
+                            onClick={handleStartChat}
+                            isLoading={isStartingChat}
+                        >
+                            Conversar com a barbearia
+                        </Button>
+                    )}
+
+                    <h4 className="text-base font-semibold text-text-dark mb-2 flex items-center">
+                        <span className="material-icons-outlined mr-2 text-primary-blue">schedule</span>
+                        Horário de Funcionamento
+                    </h4>
+                    <ul className="text-gray-700 space-y-1.5 text-sm mb-4">
                         {barbershop.workingHours.sort((a,b) => a.dayOfWeek - b.dayOfWeek).map(wh => (
                             <li key={wh.dayOfWeek} className="flex justify-between items-center py-1 border-b border-light-blue last:border-b-0">
                                 <span className="font-medium">{DAYS_OF_WEEK[wh.dayOfWeek]}:</span>
@@ -165,18 +213,16 @@ const BarbershopPublicPage: React.FC = () => {
                             </li>
                         ))}
                     </ul>
-                </div>
-                {/* Placeholder for Map - Could use an iframe or image */}
-                <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue">
-                    <h3 className="text-xl font-semibold text-primary-blue mb-3 flex items-center">
-                    <span className="material-icons-outlined mr-2">location_on</span>
-                    Localização
-                    </h3>
+
+                    <h4 className="text-base font-semibold text-text-dark mb-2 flex items-center">
+                        <span className="material-icons-outlined mr-2 text-primary-blue">location_on</span>
+                        Localização
+                    </h4>
                     <p className="text-gray-700 text-sm mb-3">{barbershop.address}</p>
-                    <div className="bg-gray-200 h-48 rounded-lg flex items-center justify-center text-gray-500 text-sm">
+                    <div className="bg-gray-200 h-40 rounded-lg flex items-center justify-center text-gray-500 text-sm">
                         (Integração com mapa aqui)
                     </div>
-                    <a 
+                     <a 
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barbershop.address)}`} 
                         target="_blank" 
                         rel="noopener noreferrer"

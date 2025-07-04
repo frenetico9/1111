@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { mockGetConversationsForBarbershop, mockGetMessagesForConversation, mockSendMessage } from '../../services/mockApiService';
+import { mockGetConversationsForClient, mockGetMessagesForConversation, mockSendMessage } from '../../services/mockApiService';
 import { Conversation, ChatMessage } from '../../types';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Button from '../../components/Button';
@@ -9,15 +9,14 @@ import Input from '../../components/Input';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import { NAVALHA_LOGO_URL } from '../../constants';
 
 const ConversationListItem: React.FC<{ conv: Conversation; isSelected: boolean; onClick: () => void }> = ({ conv, isSelected, onClick }) => (
     <div
         onClick={onClick}
         className={`p-3 flex items-center space-x-3 cursor-pointer rounded-lg transition-colors duration-150 border-l-4 ${isSelected ? 'bg-light-blue border-primary-blue' : 'border-transparent hover:bg-gray-100'}`}
     >
-        <div className="w-12 h-12 bg-primary-blue/20 text-primary-blue rounded-full flex items-center justify-center font-bold flex-shrink-0">
-            {conv.otherParty.name.charAt(0)}
-        </div>
+        <img src={conv.otherParty.avatarUrl || NAVALHA_LOGO_URL} alt={conv.otherParty.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0 bg-white" />
         <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center">
                 <p className="font-semibold text-text-dark truncate">{conv.otherParty.name}</p>
@@ -44,11 +43,10 @@ const ChatMessageBubble: React.FC<{ message: ChatMessage; isMe: boolean }> = ({ 
     </div>
 );
 
-const AdminChatPage: React.FC = () => {
+const ClientChatPage: React.FC = () => {
     const { user } = useAuth();
     const { conversationId } = useParams<{ conversationId?: string }>();
     const navigate = useNavigate();
-    const location = useLocation();
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,14 +59,14 @@ const AdminChatPage: React.FC = () => {
     const selectedConversation = conversations.find(c => c.id === conversationId);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     const fetchConversations = useCallback(async () => {
         if (user) {
             setLoadingConversations(true);
             try {
-                const convs = await mockGetConversationsForBarbershop(user.id);
+                const convs = await mockGetConversationsForClient(user.id);
                 setConversations(convs);
             } catch (error) {
                 console.error("Failed to fetch conversations", error);
@@ -132,9 +130,9 @@ const AdminChatPage: React.FC = () => {
             setIsSending(false);
         }
     };
-    
+
     const handleSelectConversation = (convId: string) => {
-        navigate(`/admin/chat/${convId}`);
+        navigate(`/client/chat/${convId}`);
     };
 
     return (
@@ -149,10 +147,10 @@ const AdminChatPage: React.FC = () => {
                         <p className="p-4 text-center text-sm text-text-light">Nenhuma conversa encontrada.</p>
                     ) : (
                         conversations.map(conv => (
-                            <ConversationListItem 
-                                key={conv.id} 
-                                conv={conv} 
-                                isSelected={conv.id === conversationId} 
+                            <ConversationListItem
+                                key={conv.id}
+                                conv={conv}
+                                isSelected={conv.id === conversationId}
                                 onClick={() => handleSelectConversation(conv.id)}
                             />
                         ))
@@ -165,12 +163,15 @@ const AdminChatPage: React.FC = () => {
                 {selectedConversation ? (
                     <>
                         <div className="p-3 border-b border-light-blue flex items-center space-x-3">
-                            <Button variant="ghost" className="md:hidden" onClick={() => navigate('/admin/chat')}><span className="material-icons-outlined">arrow_back</span></Button>
-                            <div className="w-10 h-10 bg-primary-blue/20 text-primary-blue rounded-full flex items-center justify-center font-bold flex-shrink-0">
-                                {selectedConversation.otherParty.name.charAt(0)}
-                            </div>
+                            <Button variant="ghost" className="md:hidden" onClick={() => navigate('/client/chat')}><span className="material-icons-outlined">arrow_back</span></Button>
+                            <img src={selectedConversation.otherParty.avatarUrl || NAVALHA_LOGO_URL} alt={selectedConversation.otherParty.name} className="w-10 h-10 rounded-full object-cover bg-white" />
                             <div>
                                 <p className="font-semibold text-text-dark">{selectedConversation.otherParty.name}</p>
+                                {selectedConversation.otherParty.phone && (
+                                    <a href={`tel:${selectedConversation.otherParty.phone}`} className="text-xs text-primary-blue hover:underline flex items-center">
+                                       <span className="material-icons-outlined text-xs mr-1">phone</span> {selectedConversation.otherParty.phone}
+                                    </a>
+                                )}
                             </div>
                         </div>
                         <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
@@ -210,4 +211,4 @@ const AdminChatPage: React.FC = () => {
     );
 };
 
-export default AdminChatPage;
+export default ClientChatPage;

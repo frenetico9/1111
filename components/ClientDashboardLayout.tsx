@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Link, Outlet } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import { NAVALHA_LOGO_URL } from '../../constants';
-import Button from '../../components/Button';
+import { useAuth } from '../hooks/useAuth';
+import { NAVALHA_LOGO_URL } from '../constants';
+import Button from './Button';
 
 interface ClientSidebarLinkProps {
   to: string;
@@ -15,7 +15,7 @@ const ClientSidebarLink: React.FC<ClientSidebarLinkProps> = ({ to, children, ico
   <NavLink
     to={to}
     onClick={onClick}
-    end
+    end={!to.includes('/chat')} // end should be false for parent routes like chat
     className={({ isActive }) =>
       `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-150 ease-in-out text-sm font-medium group
        ${isActive 
@@ -56,6 +56,7 @@ const ClientDashboardLayout: React.FC = () => {
       </Link>
       <nav className="space-y-1.5 flex-grow">
         <ClientSidebarLink to="/client/appointments" iconName="event_note" onClick={closeSidebar}><span>Meus Agendamentos</span></ClientSidebarLink>
+        <ClientSidebarLink to="/client/chat" iconName="chat" onClick={closeSidebar}><span>Chat</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/loyalty" iconName="card_giftcard" onClick={closeSidebar}><span>Fidelidade</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/profile" iconName="person" onClick={closeSidebar}><span>Meu Perfil</span></ClientSidebarLink>
         <ClientSidebarLink to="/client/find-barbershops" iconName="search" onClick={closeSidebar}><span>Encontrar Barbearias</span></ClientSidebarLink>

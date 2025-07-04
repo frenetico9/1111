@@ -16,6 +16,7 @@ const SidebarNavLink: React.FC<SidebarLinkProps> = ({ to, iconName, children, on
     <NavLink
       to={to}
       onClick={onClick}
+      end={!to.includes('/chat')} // end should be false for parent routes like chat
       className={({ isActive }) =>
         `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-150 ease-in-out text-sm font-medium group
          ${isActive 
@@ -77,6 +78,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLinkClick }) => {
         )}
 
         <SidebarNavLink to="/admin/appointments" iconName="event_available" onClick={onLinkClick}><span>Agendamentos</span></SidebarNavLink>
+        <SidebarNavLink to="/admin/chat" iconName="forum" onClick={onLinkClick}><span>Chat</span></SidebarNavLink>
         <SidebarNavLink to="/admin/financial" iconName="account_balance_wallet" onClick={onLinkClick}><span>Financeiro</span></SidebarNavLink>
         <SidebarNavLink to="/admin/services" iconName="cut" onClick={onLinkClick}><span>Serviços</span></SidebarNavLink>
         <SidebarNavLink to="/admin/team" iconName="groups" onClick={onLinkClick}><span>Equipe</span></SidebarNavLink>

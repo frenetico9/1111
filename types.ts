@@ -135,3 +135,26 @@ export interface ClientLoyaltyStatus {
   barbershopLogoUrl?: string;
   completedCount: number;
 }
+
+// For Chat Module
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  message: string;
+  createdAt: string; // ISO date string
+}
+
+export interface Conversation {
+  id: string;
+  // Based on who is viewing the conversation
+  otherParty: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    phone?: string; // Only for barbershops
+  };
+  lastMessage: string;
+  lastMessageTimestamp: string;
+  unreadCount: number;
+}

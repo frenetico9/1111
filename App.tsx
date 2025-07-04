@@ -113,6 +113,8 @@ const App: React.FC = () => {
             <Route path="profile" element={<ClientProfilePage />} />
             <Route path="find-barbershops" element={<ClientFindBarbershopsPage />} />
             <Route path="loyalty" element={<ClientLoyaltyPage />} />
+            <Route path="chat" element={<ClientChatPage />} />
+            <Route path="chat/:conversationId" element={<ClientChatPage />} />
           </Route>
         </Route>
 
@@ -130,6 +132,8 @@ const App: React.FC = () => {
             <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="subscription" element={<AdminSubscriptionPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="chat" element={<AdminChatPage />} />
+            <Route path="chat/:conversationId" element={<AdminChatPage />} />
           </Route>
         </Route>
         
