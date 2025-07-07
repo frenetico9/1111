@@ -18,7 +18,7 @@ const LgpdConsentModal: React.FC<LgpdConsentModalProps> = ({ onAccept }) => {
     >
       <div className="space-y-3 text-sm text-text-light leading-relaxed">
         <p>
-          Bem-vindo ao <strong>Navalha Digital</strong>! Para utilizarmos nossos serviços de agendamento e gestão para barbearias,
+          Bem-vindo à <strong>Corte Certo Barbearia</strong>! Para utilizarmos nossos serviços de agendamento e gestão,
           precisamos do seu consentimento para coletar e processar seus dados pessoais, conforme descrito em nossa
           Política de Privacidade (simulada).
         </p>
@@ -26,10 +26,10 @@ const LgpdConsentModal: React.FC<LgpdConsentModalProps> = ({ onAccept }) => {
           Os dados coletados (como nome, e-mail, telefone e informações de agendamento) são utilizados exclusivamente para:
         </p>
         <ul className="list-disc list-inside ml-4 space-y-1 text-text-dark">
-          <li>Permitir o agendamento de serviços nas barbearias parceiras.</li>
-          <li>Facilitar a comunicação entre você e a barbearia selecionada.</li>
+          <li>Permitir o agendamento de serviços na nossa barbearia.</li>
+          <li>Facilitar a comunicação entre você e a barbearia.</li>
           <li>Melhorar sua experiência em nossa plataforma e fornecer suporte.</li>
-          <li>Para administradores de barbearias, gerenciar seus negócios na plataforma.</li>
+          <li>Para administradores, gerenciar os negócios da barbearia na plataforma.</li>
         </ul>
         <p>
           Seus dados não serão compartilhados com terceiros para fins não relacionados aos serviços oferecidos,

@@ -1,17 +1,17 @@
 {
-  "short_name": "Navalha Digital",
-  "name": "Navalha Digital - Agendamento para Barbearias",
-  "description": "Plataforma completa para agendamento e gestão de barbearias e cabeleireiros masculinos. Fácil para o cliente, poderoso para o seu negócio.",
+  "short_name": "Corte Certo",
+  "name": "Corte Certo Barbearia - Agendamento Online",
+  "description": "Agendamento online e gestão para a Barbearia Corte Certo. Agende seu horário com facilidade.",
   "scope": "/",
   "icons": [
     {
-      "src": "https://iili.io/FaeA3vV.png",
+      "src": "https://i.imgur.com/kYq8nDb.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "https://iili.io/FaeA3vV.png",
+      "src": "https://i.imgur.com/kYq8nDb.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"

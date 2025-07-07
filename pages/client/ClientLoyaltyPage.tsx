@@ -3,8 +3,9 @@ import { ClientLoyaltyStatus } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { mockGetClientLoyaltyStatus } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Button from '../../components/Button';
+import { CORTE_CERTO_LOGO_URL } from '../../constants';
 
 const LOYALTY_GOAL = 10;
 
@@ -17,7 +18,7 @@ const LoyaltyCard: React.FC<{ status: ClientLoyaltyStatus }> = ({ status }) => {
     <div className="bg-white rounded-xl shadow-lg border border-light-blue p-5 transition-all hover:shadow-xl hover:border-primary-blue">
       <div className="flex items-center mb-4">
         <img 
-          src={status.barbershopLogoUrl || 'https://i.imgur.com/OViX73g.png'} 
+          src={status.barbershopLogoUrl || CORTE_CERTO_LOGO_URL} 
           alt={`${status.barbershopName} logo`}
           className="w-12 h-12 rounded-full mr-4 object-cover"
         />
@@ -85,10 +86,10 @@ const ClientLoyaltyPage: React.FC = () => {
         <div className="text-center py-10 bg-white shadow-xl rounded-lg border border-light-blue">
           <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">card_giftcard</span>
           <p className="text-xl text-gray-600 mb-4">Você ainda não tem cartões de fidelidade.</p>
-          <p className="text-sm text-gray-500 mb-6">Seus cartões aparecerão aqui conforme você completa agendamentos nas barbearias.</p>
-          <ReactRouterDOM.Link to="/client/find-barbershops">
-            <Button variant="primary" size="lg">Encontrar uma Barbearia</Button>
-          </ReactRouterDOM.Link>
+          <p className="text-sm text-gray-500 mb-6">Seus cartões aparecerão aqui conforme você completa agendamentos na nossa barbearia.</p>
+          <Link to="/">
+            <Button variant="primary" size="lg">Agendar um Horário</Button>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

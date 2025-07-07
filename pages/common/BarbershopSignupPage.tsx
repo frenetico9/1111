@@ -1,5 +1,5 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from '../../hooks/useForm';
 import { useAuth } from '../../hooks/useAuth';
 import Input from '../../components/Input';
@@ -9,7 +9,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import BackButton from '../../components/BackButton';
 
 const BarbershopSignupPage: React.FC = () => {
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
   const { signupBarbershop, loading: authLoading } = useAuth();
   const { addNotification } = useNotification();
 
@@ -58,7 +58,7 @@ const BarbershopSignupPage: React.FC = () => {
   });
 
   return (
-    <div className="flex bg-white">
+    <div className="flex bg-white min-h-[calc(100vh-80px)]">
       {/* Image Column */}
       <div 
         className="hidden md:block md:w-1/2 lg:w-2/3 bg-cover bg-center relative"
@@ -66,20 +66,20 @@ const BarbershopSignupPage: React.FC = () => {
       >
         <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-end p-12 text-white">
             <h2 className="text-4xl font-bold mb-3">Transforme a gestão do seu negócio.</h2>
-            <p className="text-lg">Junte-se ao Navalha Digital e leve sua barbearia para o próximo nível.</p>
+            <p className="text-lg">Junte-se ao Corte Certo e leve sua barbearia para o próximo nível.</p>
         </div>
       </div>
 
       {/* Form Column */}
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md">
-          <ReactRouterDOM.Link to="/" className="flex flex-col items-center mb-6 group">
+          <Link to="/" className="flex flex-col items-center mb-6 group">
             <div className="bg-primary-blue rounded-full p-3 w-32 h-32 flex items-center justify-center group-hover:opacity-80 transition-opacity">
-              <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-full h-full" />
+              <img src={NAVALHA_LOGO_URL} alt="Corte Certo Logo" className="w-full h-full" />
             </div>
             <h2 className="mt-4 text-2xl sm:text-3xl font-bold text-center text-primary-blue group-hover:opacity-80 transition-opacity">Cadastro de Barbearia</h2>
-          </ReactRouterDOM.Link>
-          <p className="mb-6 text-sm text-center text-gray-600">Traga seu negócio para o Navalha Digital e simplifique sua gestão.</p>
+          </Link>
+          <p className="mb-6 text-sm text-center text-gray-600">Traga seu negócio para o Corte Certo e simplifique sua gestão.</p>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -170,15 +170,15 @@ const BarbershopSignupPage: React.FC = () => {
 
           <p className="mt-8 text-xs sm:text-sm text-center text-gray-600">
             Já possui uma conta de barbearia?{' '}
-            <ReactRouterDOM.Link to="/login" className="font-medium text-primary-blue hover:underline">
+            <Link to="/login" className="font-medium text-primary-blue hover:underline">
               Faça Login
-            </ReactRouterDOM.Link>
+            </Link>
           </p>
           <p className="mt-2 text-xs sm:text-sm text-center text-gray-600">
             Deseja apenas agendar um serviço?{' '}
-            <ReactRouterDOM.Link to="/signup/client" className="font-medium text-primary-blue hover:underline">
+            <Link to="/signup" className="font-medium text-primary-blue hover:underline">
               Cadastre-se como Cliente
-            </ReactRouterDOM.Link>
+            </Link>
           </p>
            <div className="mt-6 text-center">
             <BackButton />

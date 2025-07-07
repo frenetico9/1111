@@ -1,4 +1,4 @@
-import { SubscriptionPlan, SubscriptionPlanTier, BarbershopProfile } from './types';
+import { BarbershopProfile, SubscriptionPlan, SubscriptionPlanTier } from './types';
 
 // Colors (already in tailwind.config, but good for JS reference if needed elsewhere)
 export const PRIMARY_BLUE = '#0052FF';
@@ -9,64 +9,9 @@ export const TEXT_DARK = '#111827';
 export const TEXT_LIGHT = '#6B7280';
 export const BORDER_COLOR = '#E5E7EB';
 
+export const CORTE_CERTO_ID = 'admin@cortecerto.com';
+export const CORTE_CERTO_LOGO_URL = 'https://i.imgur.com/kYq8nDb.png';
 export const NAVALHA_LOGO_URL = 'https://i.imgur.com/OViX73g.png';
-
-export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: SubscriptionPlanTier.FREE,
-    name: 'Plano Grátis',
-    price: 0,
-    appointmentLimit: 20,
-    employeeLimit: 1,
-    features: [
-      'Funcionalidades essenciais para começar',
-      'Página online da barbearia',
-      'Gestão de agendamentos e clientes',
-    ],
-  },
-  {
-    id: SubscriptionPlanTier.PRO,
-    name: 'Plano Pro',
-    price: 49.90,
-    appointmentLimit: 'unlimited',
-    employeeLimit: 5,
-    features: [
-      'Tudo do plano Grátis, e mais:',
-      'Destaque PRO nas buscas',
-      'Relatórios e análises avançadas',
-      'Suporte prioritário via WhatsApp',
-    ],
-  },
-];
-
-interface FeatureComparison {
-  feature: string;
-  free: boolean | string;
-  pro: boolean | string;
-  category: string;
-}
-
-export const DETAILED_FEATURES_COMPARISON: FeatureComparison[] = [
-    // Essencial
-    { category: 'Essencial', feature: 'Agendamentos por mês', free: 'Até 20', pro: 'Ilimitados' },
-    { category: 'Essencial', feature: 'Cadastro de Funcionários', free: '1', pro: 'Até 5' },
-    { category: 'Essencial', feature: 'Página Online da Barbearia', free: true, pro: true },
-    { category: 'Essencial', feature: 'Gestão de Serviços', free: true, pro: true },
-    { category: 'Essencial', feature: 'Cadastro de Clientes', free: true, pro: true },
-    // Gestão Avançada
-    { category: 'Gestão Avançada', feature: 'Histórico de Agendamentos', free: true, pro: true },
-    { category: 'Gestão Avançada', feature: 'Notificações por Email', free: true, pro: true },
-    { category: 'Gestão Avançada', feature: 'Relatórios de Desempenho', free: false, pro: true },
-    { category: 'Gestão Avançada', feature: 'Controle de Horários por Barbeiro', free: false, pro: true },
-    // Marketing e Crescimento
-    { category: 'Marketing e Crescimento', feature: 'Destaque PRO nas Buscas', free: false, pro: true },
-    { category: 'Marketing e Crescimento', feature: 'Selo Dourado de Confiança', free: false, pro: true },
-    { category: 'Marketing e Crescimento', feature: 'Gestão de Avaliações (Reviews)', free: true, pro: true },
-    { category: 'Marketing e Crescimento', feature: 'Responder Avaliações', free: false, pro: true },
-    // Suporte
-    { category: 'Suporte', feature: 'Suporte via E-mail', free: true, pro: true },
-    { category: 'Suporte', feature: 'Suporte Prioritário (WhatsApp)', free: false, pro: true },
-];
 
 export const MOCK_API_DELAY = 500; // ms, adjust for testing
 
@@ -138,4 +83,52 @@ export const DF_CITIES: string[] = [
   'Planaltina de Goiás',
   'Santo Antônio do Descoberto',
   'Valparaíso de Goiás',
+];
+
+export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: SubscriptionPlanTier.FREE,
+    name: 'Grátis',
+    price: 0,
+    appointmentLimit: 20,
+    features: [
+      'Até 20 agendamentos por mês',
+      'Página online da barbearia',
+      'Gestão de agenda e serviços',
+      'Cadastro de clientes',
+    ],
+  },
+  {
+    id: SubscriptionPlanTier.PRO,
+    name: 'PRO',
+    price: 49.90,
+    features: [
+      'Agendamentos ilimitados',
+      'Todas as funcionalidades do plano Grátis',
+      'Relatórios e análises de desempenho',
+      'Destaque nos resultados de busca',
+      'Suporte prioritário',
+    ],
+  },
+];
+
+export const DETAILED_FEATURES_COMPARISON: {category: string, feature: string, free: string | boolean, pro: string | boolean}[] = [
+    { category: 'Agendamentos', feature: 'Limite de Agendamentos Mensais', free: '20', pro: 'Ilimitado' },
+    { category: 'Agendamentos', feature: 'Agenda Online 24/7', free: true, pro: true },
+    { category: 'Agendamentos', feature: 'Notificações de Lembrete', free: true, pro: true },
+    
+    { category: 'Gestão', feature: 'Gestão de Serviços e Preços', free: true, pro: true },
+    { category: 'Gestão', feature: 'Gestão de Equipe (Barbeiros)', free: true, pro: true },
+    { category: 'Gestão', feature: 'Gestão de Clientes (CRM)', free: true, pro: true },
+    { category: 'Gestão', feature: 'Controle de Caixa (Financeiro)', free: false, pro: true },
+
+    { category: 'Marketing & Visibilidade', feature: 'Página Pública da Barbearia', free: true, pro: true },
+    { category: 'Marketing & Visibilidade', feature: 'Receber Avaliações de Clientes', free: true, pro: true },
+    { category: 'Marketing & Visibilidade', feature: 'Destaque na Busca da Plataforma', free: false, pro: true },
+
+    { category: 'Análise', feature: 'Relatórios de Faturamento', free: false, pro: true },
+    { category: 'Análise', feature: 'Relatórios de Desempenho de Serviços', free: false, pro: true },
+
+    { category: 'Suporte', feature: 'Suporte por E-mail', free: true, pro: true },
+    { category: 'Suporte', feature: 'Suporte Prioritário', free: false, pro: true },
 ];

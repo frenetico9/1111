@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 
 // Common Pages
@@ -8,24 +8,23 @@ import LoginPage from './pages/common/LoginPage';
 import ClientSignupPage from './pages/common/ClientSignupPage';
 import BarbershopSignupPage from './pages/common/BarbershopSignupPage';
 import NotFoundPage from './pages/common/NotFoundPage';
-import ForgotPasswordPage from './pages/common/ForgotPasswordPage'; // New Import
-import BarbershopPublicPage from './pages/client/BarbershopPublicPage'; 
-import FeaturesPage from './pages/common/FeaturesPage';
+import ForgotPasswordPage from './pages/common/ForgotPasswordPage';
+import ClientBookingPage from './pages/client/BookingPage';
+import ContactPage from './pages/common/ContactPage';
+import PrivacyPolicyPage from './pages/common/PrivacyPolicyPage';
+import TermsOfUsePage from './pages/common/TermsOfUsePage';
+import CookiePolicyPage from './pages/common/CookiePolicyPage';
+import BarbershopPublicPage from './pages/client/BarbershopPublicPage';
+import ClientFindBarbershopsPage from './pages/client/ClientFindBarbershopsPage';
 import PlansPage from './pages/common/PlansPage';
-import BookingPage from './pages/client/BookingPage';
-import ContactPage from './pages/common/ContactPage'; // New Import
-import PrivacyPolicyPage from './pages/common/PrivacyPolicyPage'; // New Import
-import TermsOfUsePage from './pages/common/TermsOfUsePage'; // New Import
-import CookiePolicyPage from './pages/common/CookiePolicyPage'; // New Import
+import FeaturesPage from './pages/common/FeaturesPage';
 
 
 // Client Pages & Layout
 import ClientDashboardLayout from './pages/client/ClientDashboardLayout';
 import ClientAppointmentsPage from './pages/client/ClientAppointmentsPage';
 import ClientProfilePage from './pages/client/ClientProfilePage';
-import ClientFindBarbershopsPage from './pages/client/ClientFindBarbershopsPage';
-import ClientChatPage from './pages/client/ClientChatPage'; // New Import
-import ClientLoyaltyPage from './pages/client/ClientLoyaltyPage'; // New Import
+import ClientLoyaltyPage from './pages/client/ClientLoyaltyPage';
 
 // Admin Pages & Layout
 import AdminDashboardLayout from './pages/admin/AdminDashboardLayout';
@@ -35,11 +34,11 @@ import AdminServicesPage from './pages/admin/AdminServicesPage';
 import AdminTeamPage from './pages/admin/AdminTeamPage';
 import AdminClientsPage from './pages/admin/AdminClientsPage';
 import AdminReviewsPage from './pages/admin/AdminReviewsPage';
-import AdminSubscriptionPage from './pages/admin/AdminSubscriptionPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
-import AdminReportsPage from './pages/admin/AdminReportsPage'; // New Import
-import AdminChatPage from './pages/admin/AdminChatPage'; // New Import
-import AdminFinancialPage from './pages/admin/AdminFinancialPage'; // New Import
+import AdminReportsPage from './pages/admin/AdminReportsPage';
+import AdminChatPage from './pages/admin/AdminChatPage'; // Kept for client-admin communication
+import AdminFinancialPage from './pages/admin/AdminFinancialPage';
+import AdminSubscriptionPage from './pages/admin/AdminSubscriptionPage';
 
 // Components
 import LgpdConsentModal from './components/LgpdConsentModal';
@@ -60,85 +59,83 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   }
 
   if (!user || !allowedRoles.includes(user.type)) {
-    return <ReactRouterDOM.Navigate to="/login" replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  return <ReactRouterDOM.Outlet />; // Render child routes
+  return <Outlet />; // Render child routes
 };
 
 const App: React.FC = () => {
   const [showLgpdModal, setShowLgpdModal] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('lgpdConsent_NavalhaDigital');
+    const consent = localStorage.getItem('lgpdConsent_CorteCerto');
     if (!consent) {
       setShowLgpdModal(true);
     }
   }, []);
 
   const handleLgpdAccept = () => {
-    localStorage.setItem('lgpdConsent_NavalhaDigital', 'true');
+    localStorage.setItem('lgpdConsent_CorteCerto', 'true');
     setShowLgpdModal(false);
   };
 
   return (
-    <ReactRouterDOM.BrowserRouter>
+    <BrowserRouter>
       <ScrollToTop />
       {showLgpdModal && <LgpdConsentModal onAccept={handleLgpdAccept} />}
       <NotificationContainer />
-      <ReactRouterDOM.Routes>
+      <Routes>
         {/* Public Routes with General Layout */}
-        <ReactRouterDOM.Route path="/" element={<Layout />}>
-          <ReactRouterDOM.Route index element={<HomePage />} />
-          <ReactRouterDOM.Route path="login" element={<LoginPage />} />
-          <ReactRouterDOM.Route path="forgot-password" element={<ForgotPasswordPage />} />
-          <ReactRouterDOM.Route path="signup/client" element={<ClientSignupPage />} />
-          <ReactRouterDOM.Route path="signup/barbershop" element={<BarbershopSignupPage />} />
-          <ReactRouterDOM.Route path="features" element={<FeaturesPage />} />
-          <ReactRouterDOM.Route path="plans" element={<PlansPage />} />
-          <ReactRouterDOM.Route path="contact" element={<ContactPage />} />
-          <ReactRouterDOM.Route path="privacy-policy" element={<PrivacyPolicyPage />} />
-          <ReactRouterDOM.Route path="terms-of-use" element={<TermsOfUsePage />} />
-          <ReactRouterDOM.Route path="cookie-policy" element={<CookiePolicyPage />} />
-          <ReactRouterDOM.Route path="barbershop/:barbershopId" element={<BarbershopPublicPage />} />
-          <ReactRouterDOM.Route path="barbershop/:barbershopId/book/:serviceId" element={<BookingPage />} />
-          <ReactRouterDOM.Route path="*" element={<NotFoundPage />} />
-        </ReactRouterDOM.Route>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="signup" element={<ClientSignupPage />} />
+          <Route path="signup/barbershop" element={<BarbershopSignupPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="terms-of-use" element={<TermsOfUsePage />} />
+          <Route path="cookie-policy" element={<CookiePolicyPage />} />
+          <Route path="features" element={<FeaturesPage />} />
+          <Route path="plans" element={<PlansPage />} />
+          <Route path="find" element={<ClientFindBarbershopsPage />} />
+          <Route path="barbershop/:barbershopId" element={<BarbershopPublicPage />} />
+          <Route path="book/:barbershopId/:serviceId" element={<ClientBookingPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
 
         {/* Client Routes - Dashboard has its own layout */}
-        <ReactRouterDOM.Route element={<ProtectedRoute allowedRoles={['client']} />}>
-          <ReactRouterDOM.Route path="/client" element={<ClientDashboardLayout />}>
-            <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="appointments" replace />} />
-            <ReactRouterDOM.Route path="appointments" element={<ClientAppointmentsPage />} />
-            <ReactRouterDOM.Route path="profile" element={<ClientProfilePage />} />
-            <ReactRouterDOM.Route path="find-barbershops" element={<ClientFindBarbershopsPage />} />
-            <ReactRouterDOM.Route path="loyalty" element={<ClientLoyaltyPage />} />
-            <ReactRouterDOM.Route path="chat" element={<ClientChatPage />} />
-            <ReactRouterDOM.Route path="chat/:barbershopId" element={<ClientChatPage />} />
-          </ReactRouterDOM.Route>
-        </ReactRouterDOM.Route>
+        <Route element={<ProtectedRoute allowedRoles={['client']} />}>
+          <Route path="/client" element={<ClientDashboardLayout />}>
+            <Route index element={<Navigate to="appointments" replace />} />
+            <Route path="appointments" element={<ClientAppointmentsPage />} />
+            <Route path="profile" element={<ClientProfilePage />} />
+            <Route path="loyalty" element={<ClientLoyaltyPage />} />
+          </Route>
+        </Route>
 
         {/* Admin Routes - Dashboard has its own layout */}
-        <ReactRouterDOM.Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-          <ReactRouterDOM.Route path="/admin" element={<AdminDashboardLayout />}>
-            <ReactRouterDOM.Route index element={<ReactRouterDOM.Navigate to="overview" replace />} />
-            <ReactRouterDOM.Route path="overview" element={<AdminOverviewPage />} />
-            <ReactRouterDOM.Route path="reports" element={<AdminReportsPage />} />
-            <ReactRouterDOM.Route path="appointments" element={<AdminAppointmentsPage />} />
-            <ReactRouterDOM.Route path="financial" element={<AdminFinancialPage />} />
-            <ReactRouterDOM.Route path="services" element={<AdminServicesPage />} />
-            <ReactRouterDOM.Route path="team" element={<AdminTeamPage />} />
-            <ReactRouterDOM.Route path="clients" element={<AdminClientsPage />} />
-            <ReactRouterDOM.Route path="reviews" element={<AdminReviewsPage />} />
-            <ReactRouterDOM.Route path="subscription" element={<AdminSubscriptionPage />} />
-            <ReactRouterDOM.Route path="settings" element={<AdminSettingsPage />} />
-            <ReactRouterDOM.Route path="chat" element={<AdminChatPage />} />
-            <ReactRouterDOM.Route path="chat/:clientId" element={<AdminChatPage />} />
-          </ReactRouterDOM.Route>
-        </ReactRouterDOM.Route>
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/admin" element={<AdminDashboardLayout />}>
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<AdminOverviewPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="appointments" element={<AdminAppointmentsPage />} />
+            <Route path="financial" element={<AdminFinancialPage />} />
+            <Route path="services" element={<AdminServicesPage />} />
+            <Route path="team" element={<AdminTeamPage />} />
+            <Route path="clients" element={<AdminClientsPage />} />
+            <Route path="reviews" element={<AdminReviewsPage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+            <Route path="subscription" element={<AdminSubscriptionPage />} />
+            <Route path="chat" element={<AdminChatPage />} />
+            <Route path="chat/:clientId" element={<AdminChatPage />} />
+          </Route>
+        </Route>
         
-      </ReactRouterDOM.Routes>
-    </ReactRouterDOM.BrowserRouter>
+      </Routes>
+    </BrowserRouter>
   );
 };
 

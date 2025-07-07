@@ -8,7 +8,7 @@ import Modal from '../../components/Modal';
 import StarRating from '../../components/StarRating';
 import Button from '../../components/Button';
 import { useNotification } from '../../contexts/NotificationContext';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const ClientAppointmentsPage: React.FC = () => {
   const { user } = useAuth();
@@ -136,9 +136,9 @@ const ClientAppointmentsPage: React.FC = () => {
         <div className="text-center py-10 bg-white shadow-xl rounded-lg border border-light-blue">
           <span className="material-icons-outlined text-6xl text-primary-blue/50 mb-4">event_busy</span>
           <p className="text-xl text-gray-600 mb-4">Você ainda não possui agendamentos.</p>
-          <ReactRouterDOM.Link to="/client/find-barbershops">
-            <Button variant="primary" size="lg">Encontrar Barbearias</Button>
-          </ReactRouterDOM.Link>
+          <Link to="/">
+            <Button variant="primary" size="lg">Agendar Novo Horário</Button>
+          </Link>
         </div>
       ) : (
         <>

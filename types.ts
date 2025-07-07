@@ -9,7 +9,7 @@ export interface User {
   type: UserType;
   name?: string; // Client name or Barbershop responsible name
   phone?: string;
-  barbershopName?: string; // Only for admin users (name of their barbershop)
+  barbershopName?: string; // Only for admin users (name of their barbershop for initial setup)
   address?: string; // Only for admin users (address of their barbershop for initial setup)
   // Password is not stored here, token is handled by mock API
 }
@@ -63,29 +63,6 @@ export interface Review {
   replyAt?: string; // ISO date string
 }
 
-export enum SubscriptionPlanTier {
-  FREE = 'free',
-  PRO = 'pro',
-}
-
-export interface SubscriptionPlan {
-  id: SubscriptionPlanTier;
-  name: string;
-  price: number; // per month
-  appointmentLimit: number | 'unlimited';
-  employeeLimit: number | 'unlimited';
-  features: string[];
-}
-
-export interface BarbershopSubscription {
-  barbershopId: string;
-  planId: SubscriptionPlanTier;
-  status: 'active' | 'inactive' | 'past_due' | 'cancelled'; // inactive could mean payment failed
-  startDate: string; // ISO date string
-  endDate?: string; // ISO date string for fixed term or cancellation
-  nextBillingDate?: string; // ISO date string
-}
-
 export interface BarbershopProfile {
   id: string; // same as user.id for admin type user
   name: string; // Barbershop name
@@ -104,38 +81,6 @@ export interface NotificationMessage {
   id: string;
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
-}
-
-// New type for the find barbershops page
-export interface BarbershopSearchResultItem extends BarbershopProfile {
-  averageRating: number;
-  reviewCount: number;
-  sampleServices: Pick<Service, 'id' | 'name' | 'price'>[]; 
-  subscriptionTier: SubscriptionPlanTier;
-}
-
-// CHAT TYPES
-export interface ChatMessage {
-  id: string;
-  chatId: string;
-  senderId: string;
-  senderType: 'client' | 'admin';
-  content: string;
-  createdAt: string; // ISO date string
-}
-
-export interface ChatConversation {
-  id: string; // chat id
-  clientId: string;
-  clientName: string;
-  clientPhone?: string;
-  barbershopId: string;
-  barbershopName: string;
-  barbershopLogoUrl?: string;
-  barbershopPhone?: string;
-  lastMessage?: string;
-  lastMessageAt?: string;
-  hasUnread: boolean; // For the current viewer
 }
 
 // --- NEW TYPES ---
@@ -158,4 +103,52 @@ export interface ClientLoyaltyStatus {
   barbershopName: string;
   barbershopLogoUrl?: string;
   completedCount: number;
+}
+
+// --- Subscription & Plans ---
+export enum SubscriptionPlanTier {
+  FREE = 'free',
+  PRO = 'pro',
+}
+
+export interface SubscriptionPlan {
+  id: SubscriptionPlanTier;
+  name: string;
+  price: number;
+  features: string[];
+  appointmentLimit?: number; // monthly
+}
+
+export interface BarbershopSubscription {
+  barbershopId: string;
+  planId: SubscriptionPlanTier;
+  status: 'active' | 'cancelled' | 'past_due';
+  currentPeriodStart: string; // ISO Date string
+  nextBillingDate?: string; // ISO Date string for active plans
+}
+
+export interface BarbershopSearchResultItem extends Pick<BarbershopProfile, 'id' | 'name' | 'address' | 'logoUrl'> {
+  averageRating: number;
+  reviewCount: number;
+  sampleServices: Pick<Service, 'id' | 'name' | 'price'>[];
+  subscriptionTier: SubscriptionPlanTier;
+}
+
+// --- Chat ---
+export interface ChatConversation {
+    id: string;
+    clientId: string;
+    clientName: string;
+    lastMessage: string;
+    lastMessageAt: string; // ISO string
+    hasUnread: boolean;
+}
+
+export interface ChatMessage {
+    id: string;
+    chatId: string;
+    senderId: string;
+    senderType: UserType;
+    content: string;
+    createdAt: string; // ISO string
 }
