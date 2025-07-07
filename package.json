@@ -1,7 +1,7 @@
 {
-  "name": "corte-certo-barbearia",
+  "name": "copy-of-navalha-digital---agendamento-para-barbearias",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

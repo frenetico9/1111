@@ -11,7 +11,7 @@ import { parseISO } from 'date-fns/parseISO';
 import { subDays } from 'date-fns/subDays';
 import { startOfWeek } from 'date-fns/startOfWeek';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 import { PRIMARY_BLUE } from '../../constants';
 
@@ -29,7 +29,7 @@ const StatCard: React.FC<{ title: string; value: string | number; iconName?: str
       {description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
     </div>
   );
-  return to ? <Link to={to} className="block h-full">{content}</Link> : <div className="h-full">{content}</div>;
+  return to ? <ReactRouterDOM.Link to={to} className="block h-full">{content}</ReactRouterDOM.Link> : <div className="h-full">{content}</div>;
 };
 
 const AdminOverviewPage: React.FC = () => {
@@ -182,10 +182,10 @@ const AdminOverviewPage: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-light-blue dark:border-gray-700">
         <h2 className="text-lg sm:text-xl font-semibold text-primary-blue mb-4">Ações Rápidas</h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/admin/appointments"><Button variant="primary" leftIcon={<span className="material-icons-outlined">event</span>}>Ver Agendamentos</Button></Link>
-          <Link to="/admin/services"><Button variant="outline" leftIcon={<span className="material-icons-outlined">add_circle_outline</span>}>Novo Serviço</Button></Link>
-          <Link to="/admin/team"><Button variant="outline" leftIcon={<span className="material-icons-outlined">person_add</span>}>Novo Barbeiro</Button></Link>
-          <Link to="/admin/settings"><Button variant="ghost" leftIcon={<span className="material-icons-outlined">settings</span>}>Configurações</Button></Link>
+          <ReactRouterDOM.Link to="/admin/appointments"><Button variant="primary" leftIcon={<span className="material-icons-outlined">event</span>}>Ver Agendamentos</Button></ReactRouterDOM.Link>
+          <ReactRouterDOM.Link to="/admin/services"><Button variant="outline" leftIcon={<span className="material-icons-outlined">add_circle_outline</span>}>Novo Serviço</Button></ReactRouterDOM.Link>
+          <ReactRouterDOM.Link to="/admin/team"><Button variant="outline" leftIcon={<span className="material-icons-outlined">person_add</span>}>Novo Barbeiro</Button></ReactRouterDOM.Link>
+          <ReactRouterDOM.Link to="/admin/settings"><Button variant="ghost" leftIcon={<span className="material-icons-outlined">settings</span>}>Configurações</Button></ReactRouterDOM.Link>
         </div>
       </div>
     </div>

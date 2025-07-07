@@ -1,11 +1,12 @@
 import React from 'react';
 import { Service } from '../types';
 import Button from './Button';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 
 interface ServiceCardProps {
   service: Service;
-  barbershopId?: string; // Add barbershopId for multi-tenancy linking
+  barbershopId: string; // Needed for booking link construction
+  onBook?: (serviceId: string) => void; // For client view, though Link is used now
   onEdit?: (service: Service) => void; // For admin panel
   onToggleActive?: (serviceId: string, isActive: boolean) => void; // For admin panel
   isAdminView?: boolean;
@@ -18,9 +19,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
   onToggleActive, 
   isAdminView = false 
 }) => {
-  
-  const bookingLink = barbershopId ? `/book/${barbershopId}/${service.id}` : `/book/${service.barbershopId}/${service.id}`;
-
   return (
     <div 
       className={`p-5 rounded-lg shadow-lg border-2 transition-all duration-300 ease-in-out hover:shadow-xl
@@ -49,14 +47,14 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         </div>
       ) : (
         service.isActive ? (
-          <Link to={bookingLink} className="block mt-4">
+          <ReactRouterDOM.Link to={`/barbershop/${barbershopId}/book/${service.id}`} className="block mt-4">
             <Button 
               variant="primary" 
               fullWidth
             >
               Agendar Serviço
             </Button>
-          </Link>
+          </ReactRouterDOM.Link>
         ) : (
           <p className="text-sm text-center text-red-500 mt-4 font-medium">Serviço indisponível</p>
         )

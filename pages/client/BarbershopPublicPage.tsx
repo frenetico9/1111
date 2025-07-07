@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { BarbershopProfile, Service, Review as ReviewType, UserType } from '../../types';
 import { mockGetBarbershopProfile, mockGetServicesForBarbershop, mockGetReviewsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -10,10 +10,14 @@ import { DAYS_OF_WEEK } from '../../constants';
 import StarRating from '../../components/StarRating';
 import BackButton from '../../components/BackButton';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const BarbershopPublicPage: React.FC = () => {
-  const { barbershopId } = useParams<{ barbershopId: string }>();
+  const { barbershopId } = ReactRouterDOM.useParams<{ barbershopId: string }>();
   const { user } = useAuth();
+  const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation();
+  const { addNotification } = useNotification();
 
   const [barbershop, setBarbershop] = useState<BarbershopProfile | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -58,13 +62,26 @@ const BarbershopPublicPage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const handleChatClick = () => {
+    if (!user) {
+        addNotification({message: "Você precisa estar logado para iniciar uma conversa.", type: "info"});
+        navigate('/login', {state: { from: location }});
+        return;
+    }
+    if (user.type !== UserType.CLIENT) {
+        addNotification({message: "Apenas clientes podem iniciar uma conversa.", type: "warning"});
+        return;
+    }
+    navigate(`/client/chat/${barbershopId}`);
+  };
+
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 0;
     return reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length;
   }, [reviews]);
 
   if (loading) return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><LoadingSpinner size="lg" label="Carregando barbearia..." /></div>;
-  if (error) return <div className="text-center text-red-600 py-10 text-xl bg-white p-8 rounded-lg shadow-md">{error} <Link to="/"><Button variant="primary" className="mt-6">Voltar para Início</Button></Link></div>;
+  if (error) return <div className="text-center text-red-600 py-10 text-xl bg-white p-8 rounded-lg shadow-md">{error} <ReactRouterDOM.Link to="/"><Button variant="primary" className="mt-6">Voltar para Início</Button></ReactRouterDOM.Link></div>;
   if (!barbershop) return <div className="text-center text-gray-500 py-10 text-xl bg-white p-8 rounded-lg shadow-md">Barbearia não encontrada.</div>;
 
   return (
@@ -150,7 +167,13 @@ const BarbershopPublicPage: React.FC = () => {
 
             {/* Sidebar - Working Hours & Location */}
             <aside className="md:col-span-4 space-y-6">
-                <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue sticky top-24"> {/* Sticky sidebar */}
+                 <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue sticky top-24">
+                    <Button variant="primary" fullWidth size="lg" onClick={handleChatClick}>
+                        <span className="material-icons-outlined mr-2">chat</span>
+                        Conversar com a Barbearia
+                    </Button>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-xl border border-light-blue sticky top-48"> {/* Sticky sidebar */}
                     <h3 className="text-xl font-semibold text-primary-blue mb-3 flex items-center">
                     <span className="material-icons-outlined mr-2">schedule</span>
                     Horário de Funcionamento

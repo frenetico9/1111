@@ -11,8 +11,8 @@ import {
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useNotification } from '../../contexts/NotificationContext';
 import { format } from 'date-fns/format';
-import { formatDistance } from 'date-fns/formatDistance';
 import { parseISO } from 'date-fns/parseISO';
+import { formatDistance } from 'date-fns/formatDistance';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
@@ -24,37 +24,49 @@ const ConversationListItem: React.FC<{
   onClick: () => void;
   onDelete: (conversationId: string) => void;
 }> = ({ conversation, isSelected, onClick, onDelete }) => {
-  const bgColor = isSelected ? 'bg-light-blue dark:bg-primary-blue/30' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700';
+  const bgColor = isSelected ? 'bg-light-blue' : 'bg-white hover:bg-gray-50';
   const formatLastMessageTime = (date?: string) => {
     if (!date) return '';
     try {
       const parsedDate = parseISO(date);
-      return formatDistance(parsedDate, new Date(), { addSuffix: true, locale: ptBR } as any);
+      if (isNaN(parsedDate.getTime())) {
+        console.warn('Invalid date value received for formatting:', date);
+        return '';
+      }
+      const formatOptions = { addSuffix: true, locale: ptBR };
+      return formatDistance(parsedDate, new Date(), formatOptions);
     } catch (error) {
+      console.error('Error formatting date in ConversationListItem:', error);
       return '';
     }
   };
 
   return (
-    <div className={`group flex items-center p-3 cursor-pointer transition-colors duration-150 border-b border-light-blue dark:border-gray-700 ${bgColor}`} onClick={onClick}>
-      <div className="w-12 h-12 rounded-full mr-3 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-primary-blue dark:text-blue-300 text-lg font-bold flex-shrink-0">
+    <div
+      className={`group flex items-center p-3 cursor-pointer transition-colors duration-150 border-b border-light-blue ${bgColor}`}
+      onClick={onClick}
+    >
+      <div className="w-12 h-12 rounded-full mr-3 bg-gray-200 flex items-center justify-center text-primary-blue text-lg font-bold flex-shrink-0">
         {conversation.clientName.charAt(0)}
       </div>
       <div className="flex-1 overflow-hidden">
         <div className="flex justify-between items-center">
-          <h4 className="font-semibold text-sm text-text-dark dark:text-gray-200 truncate">{conversation.clientName}</h4>
-          <span className="text-xs text-text-light dark:text-gray-400 flex-shrink-0 ml-2">{formatLastMessageTime(conversation.lastMessageAt)}</span>
+          <h4 className="font-semibold text-sm text-text-dark truncate">{conversation.clientName}</h4>
+          <span className="text-xs text-text-light flex-shrink-0 ml-2">{formatLastMessageTime(conversation.lastMessageAt)}</span>
         </div>
         <div className="flex justify-between items-start">
-          <p className="text-xs text-text-light dark:text-gray-400 truncate pr-2">{conversation.lastMessage || 'Nenhuma mensagem ainda.'}</p>
+          <p className="text-xs text-text-light truncate pr-2">{conversation.lastMessage || 'Nenhuma mensagem ainda.'}</p>
           {conversation.hasUnread && (
             <span className="w-2.5 h-2.5 bg-primary-blue rounded-full flex-shrink-0 mt-1"></span>
           )}
         </div>
       </div>
       <button
-        onClick={(e) => { e.stopPropagation(); onDelete(conversation.id); }}
-        className="ml-2 p-1.5 rounded-full text-gray-400 dark:text-gray-500 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/50 transition-colors opacity-0 group-hover:opacity-100"
+        onClick={(e) => {
+            e.stopPropagation();
+            onDelete(conversation.id);
+        }}
+        className="ml-2 p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors"
         title="Apagar conversa"
         aria-label="Apagar conversa"
       >
@@ -66,16 +78,19 @@ const ConversationListItem: React.FC<{
 
 const ChatBubble: React.FC<{ message: ChatMessage; isCurrentUser: boolean }> = ({ message, isCurrentUser }) => {
   const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
-  const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 dark:bg-gray-700 text-text-dark dark:text-gray-200';
+  const bubbleColor = isCurrentUser ? 'bg-primary-blue text-white' : 'bg-gray-200 text-text-dark';
   const borderRadius = isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none';
-  
-  const formattedTime = message.createdAt ? format(parseISO(message.createdAt), 'HH:mm') : '...';
+
+  const dateObj = parseISO(message.createdAt);
+  const formattedTime = !isNaN(dateObj.getTime())
+    ? format(dateObj, 'HH:mm')
+    : '??:??';
 
   return (
     <div className={`flex ${alignment} mb-3`}>
       <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-sm ${bubbleColor} ${borderRadius}`}>
         <p className="text-sm break-words">{message.content}</p>
-        <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} text-right`}>
+        <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-200' : 'text-gray-500'} text-right`}>
           {formattedTime}
         </p>
       </div>
@@ -99,17 +114,21 @@ const AdminChatPage: React.FC = () => {
     const [isSending, setIsSending] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
     useEffect(scrollToBottom, [messages]);
 
-    const loadAndSetConversations = useCallback(async () => {
+    const fetchConversations = useCallback(async () => {
         if (!user) return;
         setLoadingConversations(true);
         try {
             const convos = await mockGetAdminConversations(user.id);
             setConversations(convos);
         } catch (error) {
+            console.error('Erro ao buscar conversas:', error);
             addNotification({ message: "Erro ao buscar conversas.", type: 'error' });
         } finally {
             setLoadingConversations(false);
@@ -117,109 +136,87 @@ const AdminChatPage: React.FC = () => {
     }, [user, addNotification]);
 
     useEffect(() => {
-        loadAndSetConversations();
-    }, [loadAndSetConversations]);
+        fetchConversations();
+    }, [fetchConversations]);
     
+    const handleSelectConversation = useCallback(async (conversation: ChatConversation) => {
+        if (!user || activeConversation?.id === conversation.id) return;
+        
+        navigate(`/admin/chat/${conversation.clientId}`, { replace: true });
+        setActiveConversation(conversation);
+        setLoadingMessages(true);
+        try {
+            const fetchedMessages = await mockGetMessagesForChat(conversation.id, user.id, UserType.ADMIN);
+            setMessages(fetchedMessages);
+            // Mark as read locally
+            setConversations(prev => prev.map(c => c.id === conversation.id ? { ...c, hasUnread: false } : c));
+            await refreshUnreadCount(); // Refresh global unread count
+        } catch (error) {
+            console.error('Erro ao carregar mensagens:', error);
+            addNotification({ message: 'Erro ao carregar mensagens.', type: 'error' });
+        } finally {
+            setLoadingMessages(false);
+        }
+    }, [user, navigate, addNotification, activeConversation, refreshUnreadCount]);
+
+
     useEffect(() => {
-        const selectConversationFromUrl = async () => {
-            if (!user || loadingConversations) return;
-
-            if (!clientIdFromUrl) {
-                setActiveConversation(null);
-                setMessages([]);
-                return;
+        if (clientIdFromUrl && conversations.length > 0) {
+            const convoToSelect = conversations.find(c => c.clientId === clientIdFromUrl);
+            if (convoToSelect && convoToSelect.id !== activeConversation?.id) {
+                handleSelectConversation(convoToSelect);
             }
-            
-            if (activeConversation?.clientId === clientIdFromUrl) return;
-
-            setLoadingMessages(true);
-            setActiveConversation(null);
-            setMessages([]);
-
-            try {
-                const convoToSelect = conversations.find(c => c.clientId === clientIdFromUrl);
-
-                if (!convoToSelect) {
-                    // Admins can't create conversations, they only reply. If not found, it's an error.
-                    addNotification({ message: "Conversa não encontrada.", type: "error" });
-                    navigate('/admin/chat', { replace: true });
-                    return;
-                }
-                
-                setActiveConversation(convoToSelect);
-                const fetchedMessages = await mockGetMessagesForChat(convoToSelect.id, user.id, UserType.ADMIN);
-                setMessages(fetchedMessages);
-
-                if (convoToSelect.hasUnread) {
-                    setConversations(prev => prev.map(c => c.id === convoToSelect.id ? { ...c, hasUnread: false } : c));
-                    await refreshUnreadCount();
-                }
-            } catch (error) {
-                addNotification({ message: (error as Error).message || "Falha ao carregar a conversa.", type: "error" });
-                navigate('/admin/chat', { replace: true });
-            } finally {
-                setLoadingMessages(false);
-            }
-        };
-
-        selectConversationFromUrl();
-    }, [user, clientIdFromUrl, conversations, loadingConversations, addNotification, navigate, refreshUnreadCount, activeConversation]);
+        }
+    }, [clientIdFromUrl, conversations, handleSelectConversation, activeConversation]);
 
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !activeConversation || !user || isSending) return;
+        if (!newMessage.trim() || !activeConversation || !user) return;
 
         setIsSending(true);
-        const tempMessageId = `temp_${Date.now()}`;
-        const optimisticMessage: ChatMessage = {
-          id: tempMessageId,
-          chatId: activeConversation.id,
-          senderId: user.id,
-          senderType: UserType.ADMIN,
-          content: newMessage.trim(),
-          createdAt: new Date().toISOString(),
-        };
-        
-        setMessages(prev => [...prev, optimisticMessage]);
-        setNewMessage('');
-        
         try {
-            const sentMessage = await mockSendMessage(activeConversation.id, user.id, UserType.ADMIN, optimisticMessage.content);
-            setMessages(prev => prev.map(msg => msg.id === tempMessageId ? sentMessage : msg));
-            
-            setConversations(prev => {
-                const updatedConvo = { ...activeConversation, lastMessage: sentMessage.content, lastMessageAt: sentMessage.createdAt, hasUnread: false };
-                return [updatedConvo, ...prev.filter(c => c.id !== activeConversation.id)];
-            });
+            const sentMessage = await mockSendMessage(activeConversation.id, user.id, UserType.ADMIN, newMessage.trim());
+            setMessages(prev => [...prev, sentMessage]);
+            setNewMessage('');
+            // Update conversation list
+            fetchConversations();
             await refreshUnreadCount();
         } catch (error) {
+            console.error('Falha ao enviar mensagem:', error);
             addNotification({ message: 'Falha ao enviar mensagem.', type: 'error' });
-            setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
         } finally {
             setIsSending(false);
         }
     };
 
     const handleDeleteConversation = async (conversationId: string) => {
-        if (!window.confirm("Tem certeza que deseja apagar esta conversa? Ela será removida apenas da sua visualização.")) return;
+        if (!window.confirm("Tem certeza que deseja apagar esta conversa? Esta ação não pode ser desfeita e a conversa será removida apenas da sua visualização.")) {
+            return;
+        }
+
         try {
             await mockDeleteChatForUser(conversationId, UserType.ADMIN);
             addNotification({ message: "Conversa apagada com sucesso.", type: 'success' });
+
             setConversations(prev => prev.filter(c => c.id !== conversationId));
             if (activeConversation?.id === conversationId) {
+                setActiveConversation(null);
+                setMessages([]);
                 navigate('/admin/chat', { replace: true });
             }
             await refreshUnreadCount();
         } catch (error) {
+            console.error("Erro ao apagar conversa:", error);
             addNotification({ message: "Erro ao apagar conversa.", type: 'error' });
         }
     };
 
     return (
-        <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-gray-800/50 rounded-lg shadow-xl border border-light-blue dark:border-gray-700 overflow-hidden">
-            <div className="w-full md:w-1/3 border-r border-light-blue dark:border-gray-700 flex flex-col">
-                <div className="p-4 border-b border-light-blue dark:border-gray-700">
+        <div className="flex h-[calc(100vh-120px)] bg-white rounded-lg shadow-xl border border-light-blue overflow-hidden">
+            {/* Conversations List */}
+            <div className="w-1/3 border-r border-light-blue flex flex-col">
+                <div className="p-4 border-b border-light-blue">
                     <h2 className="text-xl font-bold text-primary-blue">Conversas</h2>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -229,45 +226,54 @@ const AdminChatPage: React.FC = () => {
                                 key={convo.id}
                                 conversation={convo}
                                 isSelected={activeConversation?.id === convo.id}
-                                onClick={() => navigate(`/admin/chat/${convo.clientId}`)}
+                                onClick={() => handleSelectConversation(convo)}
                                 onDelete={handleDeleteConversation}
                             />
                         ))
                     ) : (
-                        <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma conversa encontrada.</div>
+                        <div className="p-4 text-center text-sm text-gray-500">Nenhuma conversa encontrada.</div>
                     )}
                 </div>
             </div>
 
-            <div className="w-full md:w-2/3 flex flex-col">
-                {loadingMessages ? <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div> : (
-                  activeConversation ? (
-                      <>
-                          <div className="p-4 border-b border-light-blue dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-                              <h3 className="font-semibold text-text-dark dark:text-gray-200">{activeConversation.clientName}</h3>
-                          </div>
-                          <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50 dark:bg-dark-bg">
-                              {messages.map(msg => (
-                                  <ChatBubble key={msg.id} message={msg} isCurrentUser={msg.senderType === 'admin'} />
-                              ))}
-                               <div ref={messagesEndRef} />
-                          </div>
-                          <div className="p-4 bg-white dark:bg-gray-900 border-t border-light-blue dark:border-gray-700">
-                              <form onSubmit={handleSendMessage} className="flex gap-2">
-                                  <Input containerClassName="flex-grow mb-0" name="newMessage" placeholder="Digite sua mensagem..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} disabled={isSending} autoComplete="off" />
-                                  <Button type="submit" isLoading={isSending} disabled={!newMessage.trim()} rightIcon={<span className="material-icons-outlined">send</span>}>
-                                      Enviar
-                                  </Button>
-                              </form>
-                          </div>
-                      </>
-                  ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50 dark:bg-dark-bg">
-                          <span className="material-icons-outlined text-6xl text-primary-blue/30 mb-4">chat</span>
-                          <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300">Selecione uma conversa</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">Escolha uma conversa da lista à esquerda para ver as mensagens e responder.</p>
-                      </div>
-                  )
+            {/* Active Chat Window */}
+            <div className="w-2/3 flex flex-col">
+                {activeConversation ? (
+                    <>
+                        <div className="p-4 border-b border-light-blue flex justify-between items-center bg-gray-50">
+                            <h3 className="font-semibold text-text-dark">{activeConversation.clientName}</h3>
+                        </div>
+                        <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
+                            {loadingMessages ? <LoadingSpinner /> : (
+                                messages.map(msg => (
+                                    <ChatBubble key={msg.id} message={msg} isCurrentUser={msg.senderType === 'admin'} />
+                                ))
+                            )}
+                             <div ref={messagesEndRef} />
+                        </div>
+                        <div className="p-4 bg-white border-t border-light-blue">
+                            <form onSubmit={handleSendMessage} className="flex gap-2">
+                                <Input
+                                    containerClassName="flex-grow mb-0"
+                                    name="newMessage"
+                                    placeholder="Digite sua mensagem..."
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    disabled={isSending}
+                                    autoComplete="off"
+                                />
+                                <Button type="submit" isLoading={isSending} disabled={!newMessage.trim()} rightIcon={<span className="material-icons-outlined">send</span>}>
+                                    Enviar
+                                </Button>
+                            </form>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
+                        <span className="material-icons-outlined text-6xl text-primary-blue/30 mb-4">chat</span>
+                        <h3 className="text-xl font-semibold text-gray-600">Selecione uma conversa</h3>
+                        <p className="text-sm text-gray-500 max-w-xs">Escolha uma conversa da lista à esquerda para ver as mensagens e responder.</p>
+                    </div>
                 )}
             </div>
         </div>

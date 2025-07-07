@@ -135,6 +135,7 @@ const AdminServicesPage: React.FC = () => {
             <ServiceCard 
               key={service.id} 
               service={service} 
+              barbershopId={user!.id} // user is guaranteed by ProtectedRoute
               isAdminView={true}
               onEdit={() => handleOpenModal(service)}
               onToggleActive={() => handleToggleActive(service.id, service.isActive)}

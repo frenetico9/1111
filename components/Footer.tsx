@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CORTE_CERTO_LOGO_URL } from '../constants';
+import * as ReactRouterDOM from 'react-router-dom';
+import { NAVALHA_LOGO_URL } from '../constants';
 import Button from './Button';
 import Input from './Input';
 import { useNotification } from '../contexts/NotificationContext';
@@ -12,7 +12,7 @@ const SocialIcon: React.FC<{ href: string; children: React.ReactNode }> = ({ hre
 );
 
 const FooterLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
-    <Link to={to} className="text-gray-400 hover:text-white transition-colors text-sm">{children}</Link>
+    <ReactRouterDOM.Link to={to} className="text-gray-400 hover:text-white transition-colors text-sm">{children}</ReactRouterDOM.Link>
 );
 
 
@@ -37,11 +37,11 @@ const Footer: React.FC = () => {
                 {/* About & Newsletter */}
                 <div className="lg:col-span-2">
                     <div className="flex items-center space-x-2 mb-4">
-                        <img src={CORTE_CERTO_LOGO_URL} alt="Corte Certo Barbearia Logo" className="w-12 h-12" loading="lazy" />
-                        <span className="text-2xl font-bold">Corte <span className="text-primary-blue">Certo</span></span>
+                        <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" loading="lazy" />
+                        <span className="text-2xl font-bold">Navalha<span className="text-primary-blue">Digital</span></span>
                     </div>
                     <p className="text-sm text-gray-400 max-w-sm mb-6">
-                        Agendamento online para a Barbearia Corte Certo. Simples para o cliente, poderoso para o nosso negócio.
+                        A plataforma definitiva para agendamento em barbearias. Simples para o cliente, poderosa para o seu negócio.
                     </p>
                     <h4 className="font-semibold mb-2">Fique por dentro das novidades</h4>
                      <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-2 max-w-sm">
@@ -60,12 +60,13 @@ const Footer: React.FC = () => {
 
                 {/* Links */}
                 <div>
-                    <h4 className="font-semibold mb-4">Navegação</h4>
+                    <h4 className="font-semibold mb-4">Plataforma</h4>
                     <ul className="space-y-3">
-                        <li><FooterLink to="/">Início</FooterLink></li>
+                        <li><FooterLink to="/features">Funcionalidades</FooterLink></li>
+                        <li><FooterLink to="/plans">Planos</FooterLink></li>
                         <li><FooterLink to="/contact">Contato</FooterLink></li>
-                        <li><FooterLink to="/signup">Cadastro Cliente</FooterLink></li>
-                        <li><FooterLink to="/login">Login</FooterLink></li>
+                        <li><FooterLink to="/signup/barbershop">Para Barbearias</FooterLink></li>
+                        <li><FooterLink to="/signup/client">Para Clientes</FooterLink></li>
                     </ul>
                 </div>
 
@@ -85,7 +86,7 @@ const Footer: React.FC = () => {
                     <ul className="space-y-3 text-sm text-gray-400">
                         <li className="flex items-center gap-2">
                             <span className="material-icons-outlined text-lg">email</span>
-                            <span>contato@cortecerto.com</span>
+                            <span>contato@navalhadigital.com</span>
                         </li>
                          <li className="flex items-center gap-2">
                             <span className="material-icons-outlined text-lg">support_agent</span>
@@ -107,8 +108,8 @@ const Footer: React.FC = () => {
 
             </div>
             <div className="mt-12 border-t border-gray-700 pt-8 text-center text-sm text-gray-500">
-                <p>&copy; {new Date().getFullYear()} Corte Certo Barbearia. Todos os direitos reservados.</p>
-                 <p className="mt-1">Um sistema criado para afiar o seu negócio.</p>
+                <p>&copy; {new Date().getFullYear()} Navalha Digital. Todos os direitos reservados.</p>
+                 <p className="mt-1">Uma plataforma criada para afiar o seu negócio.</p>
             </div>
         </div>
     </footer>

@@ -1,6 +1,6 @@
 import React from 'react';
 import Button from '../../components/Button';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 
 const FeatureListItem: React.FC<{ title: string; description: string; iconName: string; }> = ({ title, description, iconName }) => (
     <div className="flex items-start p-4 transition-all duration-300 hover:bg-light-blue/50 rounded-lg">
@@ -45,9 +45,9 @@ const FeaturesPage: React.FC = () => {
         <div className="text-center mt-20">
             <h2 className="text-2xl font-bold text-text-dark">Pronto para começar?</h2>
             <p className="text-md text-text-light mt-2 mb-6">Junte-se a nós e transforme a gestão da sua barbearia.</p>
-            <Link to="/plans">
+            <ReactRouterDOM.Link to="/plans">
                 <Button size="lg" variant="primary">Ver Planos e Preços</Button>
-            </Link>
+            </ReactRouterDOM.Link>
         </div>
       </div>
     </div>

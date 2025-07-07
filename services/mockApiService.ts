@@ -1,6 +1,7 @@
+
 import { createPool } from '@vercel/postgres';
-import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, FinancialTransaction, ClientLoyaltyStatus, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem } from '../types';
-import { DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL, CORTE_CERTO_ID } from '../constants';
+import { User, UserType, Service, Barber, Appointment, Review, BarbershopProfile, BarbershopSubscription, SubscriptionPlanTier, BarbershopSearchResultItem, ChatConversation, ChatMessage, FinancialTransaction, ClientLoyaltyStatus } from '../types';
+import { SUBSCRIPTION_PLANS, DEFAULT_BARBERSHOP_WORKING_HOURS, TIME_SLOTS_INTERVAL } from '../constants';
 import { addMinutes, addWeeks } from 'date-fns';
 import { format } from 'date-fns/format';
 import { getDay } from 'date-fns/getDay';
@@ -8,6 +9,7 @@ import { isSameDay } from 'date-fns/isSameDay';
 import { isBefore } from 'date-fns/isBefore';
 import { isEqual } from 'date-fns/isEqual';
 import { parse } from 'date-fns/parse';
+import { set } from 'date-fns/set';
 import { startOfDay } from 'date-fns/startOfDay';
 import { parseISO } from 'date-fns/parseISO';
 
@@ -17,6 +19,9 @@ const NEON_CONNECTION_STRING = 'postgresql://neondb_owner:npg_Hpz04ZiMuEea@ep-sh
 
 const pool = createPool({
   connectionString: process.env.POSTGRES_URL || NEON_CONNECTION_STRING,
+  // @ts-ignore - webSocketConstructor is a valid option for the underlying Neon driver but not exposed in Vercel's types.
+  // This explicitly passes the browser's WebSocket implementation to the driver, fixing the connection issue in a browser environment.
+  webSocketConstructor: typeof window !== 'undefined' ? WebSocket : undefined,
 });
 
 
@@ -30,19 +35,6 @@ async function initializeDatabase() {
   try {
     // Enable UUID generation if not already enabled
     await pool.sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`;
-    
-    // Drop existing tables for a clean slate, in correct order
-    await pool.sql`DROP TABLE IF EXISTS financial_transactions CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS reviews CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS appointments CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS subscriptions CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS barbers CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS services CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS barbershop_profiles CASCADE;`;
-    await pool.sql`DROP TABLE IF EXISTS users CASCADE;`;
-    
-    console.log('Old tables dropped.');
-
 
     // Make schema creation idempotent using "IF NOT EXISTS"
     await pool.sql`
@@ -124,6 +116,64 @@ async function initializeDatabase() {
         "replyAt" TIMESTAMP WITH TIME ZONE
       );
     `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS barbershop_subscriptions (
+        "barbershopId" TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        "planId" TEXT NOT NULL,
+        status TEXT NOT NULL,
+        "startDate" TIMESTAMP WITH TIME ZONE NOT NULL,
+        "endDate" TIMESTAMP WITH TIME ZONE,
+        "nextBillingDate" TIMESTAMP WITH TIME ZONE
+      );
+    `;
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chats (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "clientId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "barbershopId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "lastMessage" TEXT,
+        "lastMessageAt" TIMESTAMP WITH TIME ZONE,
+        "clientHasUnread" BOOLEAN DEFAULT FALSE,
+        "adminHasUnread" BOOLEAN DEFAULT FALSE
+      );
+    `;
+
+    // Explicitly add the UNIQUE constraint to handle cases where the table was created without the constraint.
+    // This makes the initialization process more robust and ensures ON CONFLICT works as expected.
+    try {
+        await pool.sql`ALTER TABLE chats ADD CONSTRAINT chats_client_barbershop_unique UNIQUE ("clientId", "barbershopId");`;
+        console.log('Ensured UNIQUE constraint on chats("clientId", "barbershopId") exists.');
+    } catch (e: any) {
+        if (e.code === '42710' || e.message.includes('already exists')) {
+            // This is expected if the table and constraint were already created correctly. We can safely ignore this.
+        } else {
+            // Any other error should be re-thrown as it might indicate a more serious problem.
+            console.error("An unexpected error occurred while adding UNIQUE constraint to chats table:", e);
+            throw e;
+        }
+    }
+    
+    try {
+        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByClient" BOOLEAN DEFAULT FALSE;`;
+        await pool.sql`ALTER TABLE chats ADD COLUMN IF NOT EXISTS "deletedByAdmin" BOOLEAN DEFAULT FALSE;`;
+        console.log('Ensured soft delete columns on chats table.');
+    } catch (e: any) {
+        console.error("An unexpected error occurred while adding soft delete columns to chats table:", e);
+        throw e;
+    }
+
+    await pool.sql`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "chatId" UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        "senderId" TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        "senderType" TEXT NOT NULL,
+        content TEXT NOT NULL,
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+    `;
     
     await pool.sql`
       CREATE TABLE IF NOT EXISTS financial_transactions (
@@ -137,71 +187,80 @@ async function initializeDatabase() {
         "appointmentId" TEXT REFERENCES appointments(id) ON DELETE SET NULL
       );
     `;
-    
-     await pool.sql`
-      CREATE TABLE IF NOT EXISTS subscriptions (
-        "barbershopId" TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        "planId" TEXT NOT NULL,
-        status TEXT NOT NULL,
-        "currentPeriodStart" TIMESTAMP WITH TIME ZONE NOT NULL,
-        "nextBillingDate" TIMESTAMP WITH TIME ZONE
-      );
-    `;
 
 
     console.log('Schema verification complete.');
 
-    // Seed data for Corte Certo
-    console.log('Seeding initial data for Corte Certo Barbearia...');
-    
-    const adminId = CORTE_CERTO_ID;
-    const adminName = 'Sérgio Cabelereiro';
-    const barbershopName = 'Corte Certo Barbearia';
-    const barbershopAddress = 'Rua da Navalha, 456, Brasília';
+    // Check if data needs to be seeded by looking for a specific seed entry.
+    const { rows: seedCheck } = await pool.sql`SELECT id FROM users WHERE id = 'client1'`;
 
-    await pool.sql`
+    if (seedCheck.length === 0) {
+      console.log('Database is empty. Seeding initial data...');
+      
+      await pool.sql`
         INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash) VALUES
-        ('cliente@exemplo.com', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
-        (${adminId}, ${adminId}, 'admin', ${adminName}, '(61) 91234-5678', ${barbershopName}, ${barbershopAddress}, 'password123');
-    `;
-    
-    await pool.sql`
+        ('client1', 'cliente@exemplo.com', 'client', 'João Cliente', '(11) 98765-4321', null, null, 'password123'),
+        ('admin1', 'admin@barbearia.com', 'admin', 'Carlos Dono', '(21) 91234-5678', 'Barbearia do Carlos', 'Rua das Tesouras, 123, Rio de Janeiro', 'password123'),
+        ('admin2', 'vip@navalha.com', 'admin', 'Ana Estilista', '(31) 99999-8888', 'Navalha VIP Club', 'Avenida Principal, 789, Belo Horizonte', 'password123');
+      `;
+      
+      await pool.sql`
         INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours") VALUES
-        (${adminId}, ${barbershopName}, ${adminName}, ${adminId}, '(61) 91234-5678', ${barbershopAddress}, 'Onde o estilo encontra a precisão. Cortes modernos e clássicos com a melhor navalha da cidade.', 'https://i.imgur.com/kYq8nDb.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)});
-    `;
-    
-    await pool.sql`
+        ('admin1', 'Barbearia do Carlos', 'Carlos Dono', 'admin@barbearia.com', '(21) 91234-5678', 'Rua das Tesouras, 123, Rio de Janeiro', 'Cortes clássicos e modernos com a melhor navalha da cidade.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/LSorq3R.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)}),
+        ('admin2', 'Navalha VIP Club', 'Ana Estilista', 'vip@navalha.com', '(31) 99999-8888', 'Avenida Principal, 789, Belo Horizonte', 'Experiência premium para o homem que se cuida.', 'https://i.imgur.com/OViX73g.png', 'https://i.imgur.com/ANaRyNn.png', ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS.map(wh => ({...wh, start: '10:00', end: '20:00'})))});
+      `;
+  
+      await pool.sql`
         INSERT INTO services (id, "barbershopId", name, price, duration, "isActive", description) VALUES
-        ('service1', ${adminId}, 'Corte Masculino', 50, 45, true, 'Corte clássico ou moderno, tesoura e máquina.'),
-        ('service2', ${adminId}, 'Barba Tradicional', 35, 30, true, 'Toalha quente, navalha e produtos premium.'),
-        ('service3', ${adminId}, 'Combo Corte + Barba', 75, 75, true, 'O pacote completo para um visual impecável.'),
-        ('service4', ${adminId}, 'Hidratação Capilar', 40, 30, false, 'Tratamento para fortalecer e dar brilho.');
-    `;
-
-    await pool.sql`
+        ('service1', 'admin1', 'Corte Masculino', 50, 45, true, 'Corte clássico ou moderno, tesoura e máquina.'),
+        ('service2', 'admin1', 'Barba Tradicional', 35, 30, true, 'Toalha quente, navalha e produtos premium.'),
+        ('service3', 'admin1', 'Combo Corte + Barba', 75, 75, true, 'O pacote completo para um visual impecável.'),
+        ('service4', 'admin1', 'Hidratação Capilar', 40, 30, false, 'Tratamento para fortalecer e dar brilho.'),
+        ('service5', 'admin2', 'Corte VIP', 120, 60, true, 'Atendimento exclusivo com consultoria de imagem.'),
+        ('service6', 'admin2', 'Barboterapia Premium', 90, 45, true, 'Ritual completo de cuidados para a barba.');
+      `;
+  
+      await pool.sql`
         INSERT INTO barbers (id, "barbershopId", name, "availableHours", "assignedServices") VALUES
-        ('barber1', ${adminId}, 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{"service1","service3"}'),
-        ('barber2', ${adminId}, 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{"service1","service2"}');
-    `;
-    
-    await pool.sql`
+        ('barber1_admin1', 'admin1', 'Zé da Navalha', ${JSON.stringify([{dayOfWeek:1, start:'09:00', end:'18:00'}, {dayOfWeek:2, start:'09:00', end:'18:00'}])}, '{"service1","service3"}'),
+        ('barber2_admin1', 'admin1', 'Roberto Tesoura', ${JSON.stringify([{dayOfWeek:3, start:'10:00', end:'19:00'}, {dayOfWeek:4, start:'10:00', end:'19:00'}])}, '{"service1","service2"}'),
+        ('barber1_admin2', 'admin2', 'Mestre Arthur', ${JSON.stringify([{dayOfWeek:1, start:'10:00', end:'20:00'}])}, '{"service5","service6"}');
+      `;
+      
+      await pool.sql`
         INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, "createdAt", "sourceAppointmentId") VALUES
-        ('appt1', 'cliente@exemplo.com', ${adminId}, 'service1', 'barber1', CURRENT_DATE, '10:00', 'scheduled', NOW(), NULL),
-        ('appt2', 'cliente@exemplo.com', ${adminId}, 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days', NULL);
-    `;
-    
-    await pool.sql`
+        ('appt1', 'client1', 'admin1', 'service1', 'barber1_admin1', CURRENT_DATE, '10:00', 'scheduled', NOW(), NULL),
+        ('appt2', 'client1', 'admin1', 'service2', null, CURRENT_DATE - 2, '14:30', 'completed', NOW() - INTERVAL '2 days', NULL),
+        ('appt3', 'client1', 'admin2', 'service5', null, CURRENT_DATE + 5, '11:00', 'scheduled', NOW(), NULL);
+      `;
+      
+      await pool.sql`
         INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt") VALUES
-        ('review1', 'appt2', 'cliente@exemplo.com', ${adminId}, 5, 'Barba impecável, atendimento nota 10!', NOW() - INTERVAL '1 day');
-    `;
-    
-    await pool.sql`
-      INSERT INTO subscriptions ("barbershopId", "planId", status, "currentPeriodStart", "nextBillingDate") VALUES
-      (${adminId}, 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
-    `;
+        ('review1', 'appt2', 'client1', 'admin1', 5, 'Barba impecável, atendimento nota 10!', NOW() - INTERVAL '1 day');
+      `;
+      
+      await pool.sql`
+        INSERT INTO barbershop_subscriptions ( "barbershopId", "planId", status, "startDate", "nextBillingDate") VALUES
+        ('admin1', 'free', 'active', NOW(), null),
+        ('admin2', 'pro', 'active', NOW(), NOW() + INTERVAL '1 month');
+      `;
 
+      const { rows: chatRows } = await pool.sql`
+        INSERT INTO chats ("clientId", "barbershopId", "lastMessage", "lastMessageAt", "clientHasUnread", "adminHasUnread") VALUES
+        ('client1', 'admin1', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day', false, true)
+        RETURNING id;
+      `;
+      const seededChatId = chatRows[0].id;
 
-    console.log('Data seeding complete.');
+      await pool.sql`
+        INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt") VALUES
+        (${seededChatId}, 'admin1', 'admin', 'Seu agendamento para as 14:30 foi concluído. Esperamos que tenha gostado!', NOW() - INTERVAL '2 days'),
+        (${seededChatId}, 'client1', 'client', 'Obrigado pelo atendimento!', NOW() - INTERVAL '1 day');
+      `;
+      console.log('Data seeding complete.');
+    } else {
+      console.log('Database already seeded. Skipping seeding.');
+    }
 
     isDbInitialized = true;
   } catch (e) {
@@ -224,10 +283,13 @@ const toYyyyMmDd = (dateInput: any): string => {
     if (!dateInput) {
       throw new Error("Input is null or undefined.");
     }
+    // `parseISO` is robust and handles both 'yyyy-MM-dd' and full ISO strings.
+    // If it's already a Date object, it's used directly.
     const date = dateInput instanceof Date ? dateInput : parseISO(String(dateInput));
     if (isNaN(date.getTime())) {
       throw new Error(`Input "${dateInput}" results in an invalid date.`);
     }
+    // Formatting to yyyy-MM-dd correctly handles timezone offsets by only using the date parts.
     return format(date, 'yyyy-MM-dd');
   } catch (e) {
     console.error(`toYyyyMmDd failed for input:`, dateInput, `Error:`, (e as Error).message);
@@ -235,6 +297,7 @@ const toYyyyMmDd = (dateInput: any): string => {
   }
 };
 
+// A robust function to convert date/timestamp inputs to a valid ISO string.
 const toIsoString = (dateInput: any): string => {
   try {
     if (!dateInput) {
@@ -251,6 +314,7 @@ const toIsoString = (dateInput: any): string => {
   }
 };
 
+// A robust function to convert optional date/timestamp inputs to an ISO string or undefined.
 const toOptionalIsoString = (dateInput: any): string | undefined => {
   if (!dateInput) {
     return undefined;
@@ -341,6 +405,32 @@ const mapToReview = (row: any): Review => ({
     replyAt: toOptionalIsoString(row.replyAt)
 });
 
+const mapToBarbershopSubscription = (row: any): BarbershopSubscription => ({
+    barbershopId: row.barbershopId,
+    planId: row.planId,
+    status: row.status,
+    startDate: toIsoString(row.startDate),
+    endDate: toOptionalIsoString(row.endDate),
+    nextBillingDate: toOptionalIsoString(row.nextBillingDate)
+});
+
+const mapToBarbershopSearchResult = (row: any): BarbershopSearchResultItem => ({
+    ...mapToBarbershopProfile(row),
+    averageRating: Number(row.averageRating || 0),
+    reviewCount: Number(row.reviewCount || 0),
+    sampleServices: row.sampleServices || [],
+    subscriptionTier: row.subscriptionTier || SubscriptionPlanTier.FREE
+});
+
+const mapToChatMessage = (row: any): ChatMessage => ({
+  id: row.id,
+  chatId: row.chatId,
+  senderId: row.senderId,
+  senderType: row.senderType,
+  content: row.content,
+  createdAt: toIsoString(row.createdAt),
+});
+
 const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
   id: row.id,
   barbershopId: row.barbershopId,
@@ -352,31 +442,12 @@ const mapToFinancialTransaction = (row: any): FinancialTransaction => ({
   appointmentId: row.appointmentId
 });
 
-const mapToBarbershopSubscription = (row: any): BarbershopSubscription => ({
-    barbershopId: row.barbershopId,
-    planId: row.planId,
-    status: row.status,
-    currentPeriodStart: toIsoString(row.currentPeriodStart),
-    nextBillingDate: toOptionalIsoString(row.nextBillingDate)
-});
-
-
 // --- API Functions ---
 
 // --- User & Auth ---
-export const mockGetUserById = async (userId: string): Promise<User | null> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`SELECT * FROM users WHERE id = ${userId}`;
-    if (rows.length > 0) {
-        return mapToUser(rows[0]);
-    }
-    return null;
-}
-
 export const mockLogin = async (email: string, pass: string): Promise<User | null> => {
   await ensureDbInitialized();
-  const lowercasedEmail = email.toLowerCase();
-  const { rows } = await pool.sql`SELECT * FROM users WHERE email = ${lowercasedEmail} AND password_hash = ${pass}`;
+  const { rows } = await pool.sql`SELECT * FROM users WHERE email = ${email} AND password_hash = ${pass}`;
   if (rows.length > 0) {
     return mapToUser(rows[0]);
   }
@@ -384,15 +455,16 @@ export const mockLogin = async (email: string, pass: string): Promise<User | nul
 };
 
 export const mockLogout = () => {
+  // In a real app, this would invalidate a token on the server.
+  // For the mock, we just confirm it's "logged out".
   return Promise.resolve(true);
 };
 
 export const mockSignupClient = async (name: string, email: string, phone: string, pass: string): Promise<User> => {
   await ensureDbInitialized();
-  const lowercasedEmail = email.toLowerCase();
   const { rows } = await pool.sql`
     INSERT INTO users (id, email, type, name, phone, password_hash)
-    VALUES (${lowercasedEmail}, ${lowercasedEmail}, 'client', ${name}, ${phone}, ${pass})
+    VALUES (${email}, ${email}, 'client', ${name}, ${phone}, ${pass})
     ON CONFLICT (email) DO NOTHING
     RETURNING *;
   `;
@@ -402,56 +474,53 @@ export const mockSignupClient = async (name: string, email: string, phone: strin
   return mapToUser(rows[0]);
 };
 
-export const mockSignupBarbershop = async (barbershopName: string, responsibleName: string, email: string, phone: string, address: string, pass: string): Promise<User> => {
-    await ensureDbInitialized();
-    const lowercasedEmail = email.toLowerCase();
-    
-    const client = await pool.connect();
-    try {
-        await client.sql`BEGIN`;
-
-        // Create user
-        const { rows: userRows } = await client.sql`
-            INSERT INTO users (id, email, type, name, phone, "barbershopName", address, password_hash)
-            VALUES (${lowercasedEmail}, ${lowercasedEmail}, 'admin', ${responsibleName}, ${phone}, ${barbershopName}, ${address}, ${pass})
-            ON CONFLICT (email) DO NOTHING
-            RETURNING *;
-        `;
-        if (userRows.length === 0) {
-            throw new Error('E-mail já cadastrado.');
-        }
-        const newUser = mapToUser(userRows[0]);
-
-        // Create barbershop profile
-        await client.sql`
-            INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, "workingHours")
-            VALUES (${newUser.id}, ${barbershopName}, ${responsibleName}, ${lowercasedEmail}, ${phone}, ${address}, ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)});
-        `;
-        
-        // Create free subscription
-        await client.sql`
-            INSERT INTO subscriptions ("barbershopId", "planId", status, "currentPeriodStart")
-            VALUES (${newUser.id}, ${SubscriptionPlanTier.FREE}, 'active', NOW());
-        `;
-
-        await client.sql`COMMIT`;
-        return newUser;
-
-    } catch (e) {
-        await client.sql`ROLLBACK`;
-        console.error("Failed to signup barbershop:", e);
-        throw e;
-    } finally {
-        client.release();
-    }
-}
-
-
-export const mockUpdateClientProfile = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone'>>): Promise<boolean> => {
+export const mockSignupBarbershop = async (barbershopName: string, responsible: string, email: string, phone: string, address: string, pass: string): Promise<User> => {
   await ensureDbInitialized();
+  
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
+    
+    // 1. Create the user
+    const { rows: userRows } = await client.sql`
+      INSERT INTO users (id, email, type, name, "barbershopName", phone, address, password_hash)
+      VALUES (${email}, ${email}, 'admin', ${responsible}, ${barbershopName}, ${phone}, ${address}, ${pass})
+      ON CONFLICT (email) DO NOTHING
+      RETURNING *;
+    `;
+    if (userRows.length === 0) {
+      throw new Error('E-mail já cadastrado.');
+    }
+    const newUser = mapToUser(userRows[0]);
+
+    // 2. Create the barbershop profile
+    await client.sql`
+      INSERT INTO barbershop_profiles (id, name, "responsibleName", email, phone, address, description, "logoUrl", "coverImageUrl", "workingHours")
+      VALUES (${newUser.id}, ${barbershopName}, ${responsible}, ${email}, ${phone}, ${address}, '', null, null, ${JSON.stringify(DEFAULT_BARBERSHOP_WORKING_HOURS)});
+    `;
+    
+    // 3. Create a free subscription for the new barbershop
+    await client.sql`
+      INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate")
+      VALUES (${newUser.id}, 'free', 'active', NOW());
+    `;
+
+    await client.sql`COMMIT`;
+    return newUser;
+  } catch (e) {
+    await client.sql`ROLLBACK`;
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
+export const mockUpdateClientProfile = async (clientId: string, profileData: Partial<Pick<User, 'name' | 'phone' | 'email'>>): Promise<boolean> => {
+  await ensureDbInitialized();
+  // In a real app, email change would trigger a verification flow.
   const { rowCount } = await pool.sql`
     UPDATE users 
-    SET name = ${profileData.name}, phone = ${profileData.phone}
+    SET name = ${profileData.name}, phone = ${profileData.phone}, email = ${profileData.email}
     WHERE id = ${clientId} AND type = 'client';
   `;
   return rowCount > 0;
@@ -460,17 +529,17 @@ export const mockUpdateClientProfile = async (clientId: string, profileData: Par
 
 export const mockVerifyForgotPassword = async (name: string, email: string, phone: string): Promise<boolean> => {
     await ensureDbInitialized();
-    const { rows } = await pool.sql`SELECT id FROM users WHERE name=${name} AND email=${email.toLowerCase()} AND phone=${phone};`;
+    const { rows } = await pool.sql`SELECT id FROM users WHERE name=${name} AND email=${email} AND phone=${phone};`;
     return rows.length > 0;
 }
 
 export const mockResetPassword = async (email: string, newPass: string): Promise<boolean> => {
     await ensureDbInitialized();
-    const lowercasedEmail = email.toLowerCase();
-    if (lowercasedEmail === 'cliente@exemplo.com' || lowercasedEmail === CORTE_CERTO_ID) {
+    // Prevent password change for test accounts for demo stability
+    if (email === 'cliente@exemplo.com' || email === 'admin@barbearia.com' || email === 'vip@navalha.com') {
         throw new Error('Não é possível alterar a senha de contas de teste.');
     }
-    const { rowCount } = await pool.sql`UPDATE users SET password_hash = ${newPass} WHERE email = ${lowercasedEmail}`;
+    const { rowCount } = await pool.sql`UPDATE users SET password_hash = ${newPass} WHERE email = ${email}`;
     return rowCount > 0;
 }
 
@@ -485,44 +554,30 @@ export const mockGetBarbershopProfile = async (barbershopId: string): Promise<Ba
 export const mockUpdateBarbershopProfile = async (barbershopId: string, profileData: Partial<BarbershopProfile>): Promise<boolean> => {
   await ensureDbInitialized();
   const { name, responsibleName, phone, address, description, logoUrl, coverImageUrl, workingHours } = profileData;
-
-  const client = await pool.connect();
-  try {
-    await client.sql`BEGIN`;
-
-    const { rowCount } = await client.sql`
-      UPDATE barbershop_profiles
-      SET 
-        name = ${name}, 
-        "responsibleName" = ${responsibleName},
-        phone = ${phone},
-        address = ${address},
-        description = ${description},
-        "logoUrl" = ${logoUrl},
-        "coverImageUrl" = ${coverImageUrl},
-        "workingHours" = ${JSON.stringify(workingHours)}
-      WHERE id = ${barbershopId};
-    `;
-
-    await client.sql`
-      UPDATE users
-      SET 
-        name = ${responsibleName},
-        "barbershopName" = ${name},
-        phone = ${phone},
-        address = ${address}
-      WHERE id = ${barbershopId} AND type = 'admin';
-    `;
-
-    await client.sql`COMMIT`;
-    return rowCount > 0;
-  } catch (e) {
-    await client.sql`ROLLBACK`;
-    console.error("Failed to update barbershop profile:", e);
-    throw e;
-  } finally {
-    client.release();
-  }
+  const { rowCount } = await pool.sql`
+    UPDATE barbershop_profiles
+    SET 
+      name = ${name}, 
+      "responsibleName" = ${responsibleName},
+      phone = ${phone},
+      address = ${address},
+      description = ${description},
+      "logoUrl" = ${logoUrl},
+      "coverImageUrl" = ${coverImageUrl},
+      "workingHours" = ${JSON.stringify(workingHours)}
+    WHERE id = ${barbershopId};
+  `;
+  // Also update user table which might hold some initial data
+   await pool.sql`
+    UPDATE users
+    SET 
+      name = ${responsibleName},
+      "barbershopName" = ${name},
+      phone = ${phone},
+      address = ${address}
+    WHERE id = ${barbershopId};
+  `;
+  return rowCount > 0;
 };
 
 // --- Services ---
@@ -685,6 +740,7 @@ export const mockGetAppointmentsForClientByBarbershop = async (clientId: string,
 export const mockCancelAppointment = async (appointmentId: string, userId: string, cancelledBy: 'client' | 'admin'): Promise<boolean> => {
   await ensureDbInitialized();
   const status = cancelledBy === 'client' ? 'cancelled_by_client' : 'cancelled_by_admin';
+  // Security check: ensure the user cancelling is part of the appointment
   const { rowCount } = await pool.sql`
     UPDATE appointments SET status = ${status}
     WHERE id = ${appointmentId} AND ("clientId" = ${userId} OR "barbershopId" = ${userId});
@@ -703,6 +759,7 @@ export const mockCompleteAppointment = async (appointmentId: string): Promise<bo
     `;
 
     if (rowCount > 0) {
+        // Automatically add an income transaction
         const { rows: apptRows } = await client.sql`
             SELECT a."barbershopId", a.date, s.price, s.name as "serviceName" 
             FROM appointments a 
@@ -735,6 +792,7 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
   const { clientId, barbershopId, serviceId, barberId, date, time, status, notes, sourceAppointmentId } = appointmentData;
   const createdAt = new Date().toISOString();
 
+  // Basic validation: Check if time slot is still available
   const existingAppt = await pool.sql`
     SELECT id FROM appointments 
     WHERE "barbershopId" = ${barbershopId} AND date = ${date} AND time = ${time} AND status = 'scheduled'
@@ -745,10 +803,11 @@ export const mockCreateAppointment = async (appointmentData: Omit<Appointment, '
 
   const { rows } = await pool.sql`
     INSERT INTO appointments (id, "clientId", "barbershopId", "serviceId", "barberId", date, time, status, notes, "createdAt", "sourceAppointmentId")
-    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${sourceAppointmentId || null})
+    VALUES (${newId}, ${clientId}, ${barbershopId}, ${serviceId}, ${barberId || null}, ${date}, ${time}, ${status}, ${notes || null}, ${createdAt}, ${sourceAppointmentId || null})
     RETURNING id;
   `;
   
+  // Refetch to get denormalized names
   const { rows: fullAppt } = await pool.sql`
     SELECT 
         a.*,
@@ -775,6 +834,7 @@ export const mockUpdateAppointment = async (appointmentId: string, appointmentDa
         WHERE id = ${appointmentId}
         RETURNING id;
      `;
+     // Refetch to get denormalized names
     const { rows: fullAppt } = await pool.sql`
         SELECT a.*, u_client.name as "clientName", bp.name as "barbershopName", s.name as "serviceName", b.name as "barberName"
         FROM appointments a
@@ -793,6 +853,7 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
     const date = parse(dateStr, 'yyyy-MM-dd', new Date());
     const dayOfWeek = getDay(date);
 
+    // 1. Get barbershop's working hours for the given day
     const profile = await mockGetBarbershopProfile(barbershopId);
     const dayHours = profile?.workingHours.find(wh => wh.dayOfWeek === dayOfWeek);
 
@@ -800,6 +861,7 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
         return [];
     }
 
+    // 2. Determine the working hours to use (barber-specific or barbershop default)
     let startWorkTimeStr = dayHours.start;
     let endWorkTimeStr = dayHours.end;
 
@@ -813,6 +875,7 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
         }
     }
     
+    // 3. Generate all possible slots
     const allSlots: string[] = [];
     let currentTime = parse(startWorkTimeStr, 'HH:mm', date);
     const endTime = parse(endWorkTimeStr, 'HH:mm', date);
@@ -820,14 +883,16 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
 
     while (isBefore(currentTime, endTime)) {
         const slotEndTime = addMinutes(currentTime, serviceDuration);
-        if (!isBefore(slotEndTime, endTime) && !isEqual(slotEndTime, endTime)) break;
+        if (!isBefore(slotEndTime, endTime) && !isEqual(slotEndTime, endTime)) break; // Slot must finish within working hours
 
+        // Don't show slots in the past
         if (!isSameDay(date, now) || isBefore(now, currentTime)) {
              allSlots.push(format(currentTime, 'HH:mm'));
         }
-        currentTime = addMinutes(currentTime, TIME_SLOTS_INTERVAL);
+        currentTime = addMinutes(currentTime, TIME_SLOTS_INTERVAL); // Next slot starts after interval
     }
 
+    // 4. Get all booked appointments for that day and barber (if specified)
     let query;
 
     if (barberId) {
@@ -838,6 +903,7 @@ export const mockGetAvailableTimeSlots = async (barbershopId: string, serviceDur
     const { rows: bookedAppointments } = await query;
     const bookedSlots = bookedAppointments.map(a => a.time);
 
+    // 5. Filter out booked slots
     return allSlots.filter(slot => !bookedSlots.includes(slot));
 };
 
@@ -866,6 +932,7 @@ export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>
     const createdAt = new Date().toISOString();
     const { appointmentId, clientId, clientName, barbershopId, rating, comment } = reviewData;
 
+    // Use ON CONFLICT to update an existing review for the same appointment
     const { rows } = await pool.sql`
         INSERT INTO reviews (id, "appointmentId", "clientId", "barbershopId", rating, comment, "createdAt")
         VALUES (${newId}, ${appointmentId}, ${clientId}, ${barbershopId}, ${rating}, ${comment}, ${createdAt})
@@ -878,6 +945,7 @@ export const mockAddReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>
 
 export const mockReplyToReview = async (reviewId: string, replyText: string, adminId: string): Promise<boolean> => {
     await ensureDbInitialized();
+    // Extra check to ensure the replier is the owner of the barbershop
     const { rowCount } = await pool.sql`
         UPDATE reviews r
         SET reply = ${replyText}, "replyAt" = NOW()
@@ -888,6 +956,240 @@ export const mockReplyToReview = async (reviewId: string, replyText: string, adm
         throw new Error('Permissão negada ou avaliação não encontrada.');
     }
     return true;
+};
+
+
+// --- Subscriptions ---
+export const mockGetBarbershopSubscription = async (barbershopId: string): Promise<BarbershopSubscription | null> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`SELECT * FROM barbershop_subscriptions WHERE "barbershopId" = ${barbershopId}`;
+    return rows.length > 0 ? mapToBarbershopSubscription(rows[0]) : null;
+};
+
+export const mockUpdateBarbershopSubscription = async (barbershopId: string, planId: SubscriptionPlanTier): Promise<boolean> => {
+    await ensureDbInitialized();
+    const newSub = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!newSub) return false;
+
+    const status = 'active';
+    const startDate = new Date().toISOString();
+    const nextBillingDate = planId === 'free' ? null : addWeeks(new Date(), 4).toISOString();
+
+    const { rowCount } = await pool.sql`
+        INSERT INTO barbershop_subscriptions ("barbershopId", "planId", status, "startDate", "nextBillingDate")
+        VALUES (${barbershopId}, ${planId}, ${status}, ${startDate}, ${nextBillingDate})
+        ON CONFLICT ("barbershopId") DO UPDATE 
+        SET "planId" = EXCLUDED."planId",
+            status = EXCLUDED.status,
+            "startDate" = EXCLUDED."startDate",
+            "nextBillingDate" = EXCLUDED."nextBillingDate";
+    `;
+
+    return rowCount > 0;
+};
+
+// --- Public / Search ---
+export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResultItem[]> => {
+    await ensureDbInitialized();
+    const { rows } = await pool.sql`
+        SELECT 
+            bp.*, 
+            sub."planId" as "subscriptionTier",
+            COALESCE(rev_stats.avg_rating, 0) as "averageRating",
+            COALESCE(rev_stats.review_count, 0) as "reviewCount",
+            (SELECT json_agg(json_build_object('id', s.id, 'name', s.name, 'price', s.price))
+             FROM (
+                SELECT id, name, price 
+                FROM services 
+                WHERE "barbershopId" = bp.id AND "isActive" = true 
+                ORDER BY price
+                LIMIT 3
+             ) s
+            ) as "sampleServices"
+        FROM barbershop_profiles bp
+        LEFT JOIN barbershop_subscriptions sub ON bp.id = sub."barbershopId"
+        LEFT JOIN (
+            SELECT 
+                "barbershopId", 
+                AVG(rating) as avg_rating, 
+                COUNT(id) as review_count 
+            FROM reviews 
+            GROUP BY "barbershopId"
+        ) as rev_stats ON bp.id = rev_stats."barbershopId"
+        ORDER BY sub."planId" DESC, "averageRating" DESC;
+    `;
+    return rows.map(mapToBarbershopSearchResult);
+};
+
+// --- Chat ---
+export const mockGetAdminConversations = async (barbershopId: string): Promise<ChatConversation[]> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT 
+        c.id, c."clientId", u.name as "clientName", u.phone as "clientPhone", 
+        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl",
+        c."lastMessage", c."lastMessageAt", c."adminHasUnread" as "hasUnread"
+    FROM chats c
+    JOIN users u ON c."clientId" = u.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c."barbershopId" = ${barbershopId} AND c."deletedByAdmin" = FALSE
+    ORDER BY c."lastMessageAt" DESC;
+  `;
+  return rows.map(row => ({
+    id: row.id,
+    clientId: row.clientId,
+    clientName: row.clientName,
+    clientPhone: row.clientPhone,
+    barbershopId: row.barbershopId,
+    barbershopName: row.barbershopName,
+    barbershopLogoUrl: row.barbershopLogoUrl,
+    lastMessage: row.lastMessage,
+    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+    hasUnread: row.hasUnread,
+  }));
+};
+
+export const mockGetClientConversations = async (clientId: string): Promise<ChatConversation[]> => {
+  await ensureDbInitialized();
+  const { rows } = await pool.sql`
+    SELECT 
+        c.id, c."clientId", u.name as "clientName",
+        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
+        c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
+    FROM chats c
+    JOIN users u ON c."clientId" = u.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c."clientId" = ${clientId} AND c."deletedByClient" = FALSE
+    ORDER BY c."lastMessageAt" DESC;
+  `;
+  return rows.map(row => ({
+    id: row.id,
+    clientId: row.clientId,
+    clientName: row.clientName,
+    barbershopId: row.barbershopId,
+    barbershopName: row.barbershopName,
+    barbershopLogoUrl: row.barbershopLogoUrl,
+    barbershopPhone: row.barbershopPhone,
+    lastMessage: row.lastMessage,
+    lastMessageAt: toOptionalIsoString(row.lastMessageAt),
+    hasUnread: row.hasUnread,
+  }));
+};
+
+export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<ChatMessage[]> => {
+  await ensureDbInitialized();
+  const client = await pool.connect();
+  try {
+    // Mark messages as read
+    if (userType === UserType.ADMIN) {
+      await client.sql`UPDATE chats SET "adminHasUnread" = FALSE WHERE id = ${chatId} AND "barbershopId" = ${userId};`;
+    } else {
+      await client.sql`UPDATE chats SET "clientHasUnread" = FALSE WHERE id = ${chatId} AND "clientId" = ${userId};`;
+    }
+
+    // Fetch messages
+    const { rows } = await client.sql`
+      SELECT * FROM chat_messages 
+      WHERE "chatId" = ${chatId}
+      ORDER BY "createdAt" ASC;
+    `;
+    return rows.map(mapToChatMessage);
+  } finally {
+    client.release();
+  }
+};
+
+export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<ChatMessage> => {
+  await ensureDbInitialized();
+  const client = await pool.connect();
+  try {
+    await client.sql`BEGIN`;
+    
+    // Insert message
+    const { rows: messageRows } = await client.sql`
+      INSERT INTO chat_messages ("chatId", "senderId", "senderType", content, "createdAt")
+      VALUES (${chatId}, ${senderId}, ${senderType}, ${content}, NOW())
+      RETURNING *;
+    `;
+
+    // Update chat metadata
+    const clientHasUnread = senderType === UserType.ADMIN;
+    const adminHasUnread = senderType === UserType.CLIENT;
+
+    await client.sql`
+      UPDATE chats
+      SET "lastMessage" = ${content},
+          "lastMessageAt" = NOW(),
+          "clientHasUnread" = "clientHasUnread" OR ${clientHasUnread},
+          "adminHasUnread" = "adminHasUnread" OR ${adminHasUnread},
+          "deletedByClient" = FALSE, -- Undelete if user sends a new message
+          "deletedByAdmin" = FALSE
+      WHERE id = ${chatId};
+    `;
+
+    await client.sql`COMMIT`;
+    return mapToChatMessage(messageRows[0]);
+  } catch (e) {
+    await client.sql`ROLLBACK`;
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
+export const mockCreateOrGetConversation = async (clientId: string, barbershopId: string): Promise<ChatConversation> => {
+  await ensureDbInitialized();
+
+  // Atomically create or do nothing if exists, and return the row
+  const { rows } = await pool.sql`
+    INSERT INTO chats ("clientId", "barbershopId")
+    VALUES (${clientId}, ${barbershopId})
+    ON CONFLICT ("clientId", "barbershopId") DO UPDATE
+    SET "lastMessageAt" = COALESCE(chats."lastMessageAt", NOW()) -- just to make RETURNING work for existing rows
+    RETURNING id;
+  `;
+  const chatId = rows[0].id;
+  
+  // Now fetch the full conversation details
+  const { rows: convoRows } = await pool.sql`
+    SELECT 
+        c.id, c."clientId", u_client.name as "clientName",
+        c."barbershopId", bp.name as "barbershopName", bp."logoUrl" as "barbershopLogoUrl", bp.phone as "barbershopPhone",
+        c."lastMessage", c."lastMessageAt", c."clientHasUnread" as "hasUnread"
+    FROM chats c
+    JOIN users u_client ON c."clientId" = u_client.id
+    JOIN barbershop_profiles bp ON c."barbershopId" = bp.id
+    WHERE c.id = ${chatId};
+  `;
+
+  if (convoRows.length === 0) {
+      throw new Error('Failed to create or retrieve conversation.');
+  }
+
+  return {
+    id: convoRows[0].id,
+    clientId: convoRows[0].clientId,
+    clientName: convoRows[0].clientName,
+    barbershopId: convoRows[0].barbershopId,
+    barbershopName: convoRows[0].barbershopName,
+    barbershopLogoUrl: convoRows[0].barbershopLogoUrl,
+    barbershopPhone: convoRows[0].barbershopPhone,
+    lastMessage: convoRows[0].lastMessage,
+    lastMessageAt: toOptionalIsoString(convoRows[0].lastMessageAt),
+    hasUnread: convoRows[0].hasUnread,
+  };
+};
+
+export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
+  await ensureDbInitialized();
+  let updateQuery;
+  if (userType === 'admin') {
+    updateQuery = pool.sql`UPDATE chats SET "deletedByAdmin" = TRUE WHERE id = ${chatId};`;
+  } else {
+    updateQuery = pool.sql`UPDATE chats SET "deletedByClient" = TRUE WHERE id = ${chatId};`;
+  }
+  const { rowCount } = await updateQuery;
+  return rowCount > 0;
 };
 
 // --- Financials ---
@@ -945,6 +1247,7 @@ export const mockCreateFutureAppointment = async (sourceAppointment: Appointment
     const futureDate = addWeeks(sourceDate, weeksInFuture);
     const futureDateStr = format(futureDate, 'yyyy-MM-dd');
     
+    // Check if the future slot is available
     const service = await mockGetServiceById(sourceAppointment.serviceId);
     if (!service) throw new Error('Serviço do agendamento original não encontrado.');
 
@@ -972,175 +1275,4 @@ export const mockCreateFutureAppointment = async (sourceAppointment: Appointment
     };
 
     return mockCreateAppointment(newAppointmentData);
-};
-
-
-// --- Chat ---
-// Mock data structure for chat
-interface ChatConversationInDB {
-    id: string; // e.g., "chat_adminId_clientId"
-    adminId: string;
-    clientId: string;
-    lastMessage: string;
-    lastMessageAt: string;
-    adminUnread: boolean;
-    clientUnread: boolean;
-}
-interface ChatMessageInDB {
-    id: string;
-    chatId: string;
-    senderId: string;
-    senderType: UserType;
-    content: string;
-    createdAt: string;
-}
-
-// In-memory store for chat to avoid DB complexity for this feature
-let mockChatConversations: ChatConversationInDB[] = [];
-let mockChatMessages: ChatMessageInDB[] = [];
-
-// Function to get or create a chat
-async function getOrCreateChat(adminId: string, clientId: string): Promise<ChatConversationInDB> {
-    const chatId = `chat_${adminId}_${clientId}`;
-    let chat = mockChatConversations.find(c => c.id === chatId);
-    if (!chat) {
-        chat = {
-            id: chatId,
-            adminId,
-            clientId,
-            lastMessage: '',
-            lastMessageAt: new Date().toISOString(),
-            adminUnread: false,
-            clientUnread: false,
-        };
-        mockChatConversations.push(chat);
-    }
-    return chat;
-}
-
-export const mockGetAdminConversations = async (adminId: string): Promise<any[]> => {
-    // This would be a DB query in a real app
-    const convos = mockChatConversations.filter(c => c.adminId === adminId);
-    const results = await Promise.all(convos.map(async c => {
-        const client = await mockGetUserById(c.clientId);
-        return {
-            id: c.id,
-            clientId: c.clientId,
-            clientName: client?.name || 'Cliente Desconhecido',
-            lastMessage: c.lastMessage,
-            lastMessageAt: c.lastMessageAt,
-            hasUnread: c.adminUnread,
-        };
-    }));
-    return results.sort((a,b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-}
-
-export const mockGetMessagesForChat = async (chatId: string, userId: string, userType: UserType): Promise<any[]> => {
-    // In a real app, you'd check if the user has permission to view this chat
-    const chat = mockChatConversations.find(c => c.id === chatId);
-    if (!chat) throw new Error("Chat não encontrado");
-    
-    // Mark as read
-    if (userType === 'admin') {
-        chat.adminUnread = false;
-    } else {
-        chat.clientUnread = false;
-    }
-    
-    return mockChatMessages.filter(m => m.chatId === chatId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-}
-
-export const mockSendMessage = async (chatId: string, senderId: string, senderType: UserType, content: string): Promise<any> => {
-    const chat = mockChatConversations.find(c => c.id === chatId);
-    if (!chat) throw new Error("Chat não encontrado");
-
-    const newMessage: ChatMessageInDB = {
-        id: `msg_${Date.now()}`,
-        chatId,
-        senderId,
-        senderType,
-        content,
-        createdAt: new Date().toISOString(),
-    };
-    mockChatMessages.push(newMessage);
-
-    // Update conversation metadata
-    chat.lastMessage = content;
-    chat.lastMessageAt = newMessage.createdAt;
-    if (senderType === 'admin') {
-        chat.clientUnread = true;
-    } else {
-        chat.adminUnread = true;
-    }
-
-    return newMessage;
-};
-
-export const mockDeleteChatForUser = async (chatId: string, userType: UserType): Promise<boolean> => {
-    // This is a "soft delete" for one user. The other user can still see the chat.
-    // In a real app, you might add a `deletedForAdmin` and `deletedForClient` flag.
-    // For this mock, we'll just remove it from the array, which affects both users.
-    const initialLength = mockChatConversations.length;
-    mockChatConversations = mockChatConversations.filter(c => c.id !== chatId);
-    mockChatMessages = mockChatMessages.filter(m => m.chatId !== chatId);
-    return mockChatConversations.length < initialLength;
-};
-
-// --- Subscriptions ---
-export const mockGetBarbershopSubscription = async (barbershopId: string): Promise<BarbershopSubscription | null> => {
-    await ensureDbInitialized();
-    const { rows } = await pool.sql`SELECT * FROM subscriptions WHERE "barbershopId" = ${barbershopId}`;
-    return rows.length > 0 ? mapToBarbershopSubscription(rows[0]) : null;
-};
-
-export const mockUpdateSubscription = async (barbershopId: string, planId: SubscriptionPlanTier): Promise<boolean> => {
-    await ensureDbInitialized();
-    const nextBilling = planId === SubscriptionPlanTier.PRO ? `NOW() + INTERVAL '1 month'` : 'NULL';
-    const { rowCount } = await pool.sql`
-        UPDATE subscriptions 
-        SET 
-            "planId" = ${planId}, 
-            status = 'active', 
-            "currentPeriodStart" = NOW(), 
-            "nextBillingDate" = ${nextBilling}
-        WHERE "barbershopId" = ${barbershopId};
-    `;
-    return rowCount > 0;
-};
-
-export const mockGetPublicBarbershops = async (): Promise<BarbershopSearchResultItem[]> => {
-    await ensureDbInitialized();
-
-    const { rows } = await pool.sql`
-        SELECT
-            p.id,
-            p.name,
-            p.address,
-            p."logoUrl",
-            COALESCE(sub."planId", 'free') as "subscriptionTier",
-            (SELECT COALESCE(AVG(r.rating), 0) FROM reviews r WHERE r."barbershopId" = p.id) as "averageRating",
-            (SELECT COUNT(r.id) FROM reviews r WHERE r."barbershopId" = p.id) as "reviewCount",
-            (
-                SELECT json_agg(s.*)
-                FROM (
-                    SELECT s.id, s.name, s.price FROM services s
-                    WHERE s."barbershopId" = p.id AND s."isActive" = true
-                    ORDER BY s.price ASC
-                    LIMIT 3
-                ) s
-            ) as "sampleServices"
-        FROM barbershop_profiles p
-        LEFT JOIN subscriptions sub ON p.id = sub."barbershopId";
-    `;
-
-    return rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        address: row.address,
-        logoUrl: row.logoUrl,
-        subscriptionTier: row.subscriptiontier,
-        averageRating: parseFloat(row.averagerating),
-        reviewCount: parseInt(row.reviewcount, 10),
-        sampleServices: row.sampleservices || []
-    }));
 };

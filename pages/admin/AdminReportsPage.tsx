@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Appointment, Service, Barber, Review } from '../../types';
+import { Appointment, Service, Barber, SubscriptionPlanTier, Review } from '../../types';
 import { mockGetAdminAppointments, mockGetServicesForBarbershop, mockGetBarbersForBarbershop, mockGetReviewsForBarbershop } from '../../services/mockApiService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Button from '../../components/Button';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns/format';
 import { subDays } from 'date-fns/subDays';
+import { startOfDay } from 'date-fns/startOfDay';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 const StatCard: React.FC<{ title: string; value: string | number; iconName?: string; description?: string; }> = ({ title, value, iconName, description }) => (
     <div className="bg-white p-5 rounded-xl shadow-lg border border-light-blue hover:shadow-xl transition-shadow h-full">
@@ -29,7 +31,8 @@ const NoDataState: React.FC<{title: string, message: string}> = ({title, message
 );
 
 const AdminReportsPage: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    const { user, barbershopSubscription, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
 
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -37,6 +40,12 @@ const AdminReportsPage: React.FC = () => {
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [dateRange, setDateRange] = useState<'last7' | 'last30'>('last30');
+
+    useEffect(() => {
+        if (!authLoading && barbershopSubscription && barbershopSubscription.planId !== SubscriptionPlanTier.PRO) {
+            navigate('/admin/subscription');
+        }
+    }, [barbershopSubscription, authLoading, navigate]);
 
     const fetchData = useCallback(async () => {
         if (user) {
@@ -151,6 +160,7 @@ const AdminReportsPage: React.FC = () => {
     }, [completedAppointments, barbers, services, reviews]);
 
     if (loading || authLoading) return <div className="flex justify-center items-center h-[calc(100vh-200px)]"><LoadingSpinner size="lg" label="Carregando relatórios..." /></div>;
+    if (barbershopSubscription?.planId !== SubscriptionPlanTier.PRO) return null;
     if(completedAppointments.length === 0) return <NoDataState title="Sem dados para analisar" message="Quando você tiver agendamentos concluídos, os relatórios aparecerão aqui."/>
 
     const PIE_COLORS = ['#0052FF', '#007BFF', '#58AFFF', '#8BC8FF', '#BEDAFF'];

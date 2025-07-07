@@ -95,7 +95,7 @@ const ClientFindBarbershopsPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="container mx-auto">
       <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue mb-6 sm:mb-8">Encontrar Barbearias</h1>
 
       {/* Search and Filter Controls */}

@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Button from '../../components/Button';
 import { DETAILED_FEATURES_COMPARISON } from '../../constants';
 
@@ -49,13 +49,13 @@ const PlansPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {categories.map((category, i) => (
-                                        <Fragment key={category || i}>
+                                    {categories.map(category => (
+                                        <Fragment key={category}>
                                             <tr className="bg-surface">
                                                 <td colSpan={3} className="p-3 text-left font-bold text-primary-blue">{category}</td>
                                             </tr>
-                                            {DETAILED_FEATURES_COMPARISON.filter(f => f.category === category).map((featureItem, idx) => (
-                                                <tr key={featureItem.feature || idx} className="border-t border-border-color hover:bg-light-blue/50">
+                                            {DETAILED_FEATURES_COMPARISON.filter(f => f.category === category).map(featureItem => (
+                                                <tr key={featureItem.feature} className="border-t border-border-color hover:bg-light-blue/50">
                                                     <td className="p-3 md:p-4 text-left text-text-light">{featureItem.feature}</td>
                                                     <td className="p-3 md:p-4 border-l border-border-color">{renderFeatureValue(featureItem.free)}</td>
                                                     <td className="p-3 md:p-4 border-l border-border-color">{renderFeatureValue(featureItem.pro)}</td>
@@ -71,10 +71,10 @@ const PlansPage: React.FC = () => {
                                             <p className="text-xs text-text-light">Escolha um plano e comece hoje.</p>
                                         </td>
                                         <td className="p-4 md:p-6 border-l border-border-color">
-                                            <Link to="/signup/barbershop"><Button variant="outline" fullWidth>Começar Grátis</Button></Link>
+                                            <ReactRouterDOM.Link to="/signup/barbershop"><Button variant="outline" fullWidth>Começar Grátis</Button></ReactRouterDOM.Link>
                                         </td>
                                         <td className="p-4 md:p-6 border-l border-border-color">
-                                            <Link to="/signup/barbershop"><Button variant="primary" fullWidth>Assinar PRO</Button></Link>
+                                            <ReactRouterDOM.Link to="/signup/barbershop"><Button variant="primary" fullWidth>Assinar PRO</Button></ReactRouterDOM.Link>
                                         </td>
                                     </tr>
                                 </tfoot>

@@ -1,26 +1,28 @@
+
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { CORTE_CERTO_LOGO_URL } from '../constants';
+import * as ReactRouterDOM from 'react-router-dom';
+import { NAVALHA_LOGO_URL } from '../constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
 import BackButton from './BackButton';
 
 const NavLinkItem = React.memo<{ to: string; children: React.ReactNode; onClick?: () => void }>(({ to, children, onClick }) => (
-  <NavLink
+  <ReactRouterDOM.NavLink
     to={to}
     onClick={onClick}
     className="block md:inline-block py-3 md:py-0 px-4 md:px-0 text-lg md:text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200"
   >
     {children}
-  </NavLink>
+  </ReactRouterDOM.NavLink>
 ));
 NavLinkItem.displayName = 'NavLinkItem';
 
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = ReactRouterDOM.useNavigate();
+  const location = ReactRouterDOM.useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
@@ -49,19 +51,21 @@ const Header: React.FC = () => {
     };
   }, [isMenuOpen]);
   
-  const showBackButton = location.pathname.startsWith('/book/');
+  const showBackButton = location.pathname.startsWith('/barbershop/') || location.pathname.startsWith('/booking');
 
   const MainHeaderBar = (
     <header className="bg-dark-bg shadow-lg sticky top-0 z-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <Link to="/" className="flex items-center space-x-2 group">
-              <img src={CORTE_CERTO_LOGO_URL} alt="Corte Certo Barbearia Logo" className="w-12 h-12" />
-              <span className="text-xl sm:text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">Corte<span className="text-primary-blue">Certo</span></span>
-            </Link>
+            <ReactRouterDOM.Link to="/" className="flex items-center space-x-2 group">
+              <img src={NAVALHA_LOGO_URL} alt="Navalha Digital Logo" className="w-12 h-12" />
+              <span className="text-xl sm:text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">Navalha<span className="text-primary-blue">Digital</span></span>
+            </ReactRouterDOM.Link>
             
             <nav className="hidden md:flex items-center space-x-8">
               <NavLinkItem to="/">Início</NavLinkItem>
+              <NavLinkItem to="/features">Funcionalidades</NavLinkItem>
+              <NavLinkItem to="/plans">Planos</NavLinkItem>
               <NavLinkItem to="/contact">Contato</NavLinkItem>
             </nav>
             
@@ -76,12 +80,13 @@ const Header: React.FC = () => {
               ) : (
                 <>
                   <Button onClick={() => navigate('/login')} size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">Login</Button>
+                  <Button onClick={() => navigate('/signup/client')} variant="outline" size="sm">Cadastro Cliente</Button>
                   <Button 
-                    onClick={() => navigate('/signup')} 
-                    variant="primary" 
+                    onClick={() => navigate('/signup/barbershop')} 
                     size="sm"
+                    className="bg-gradient-to-r from-blue-500 to-primary-blue text-white font-semibold hover:shadow-lg hover:from-blue-600 hover:to-primary-blue-dark"
                   >
-                    Cadastre-se
+                    Sou Barbearia
                   </Button>
                 </>
               )}
@@ -121,6 +126,8 @@ const Header: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-full pt-20">
               <nav className="flex flex-col items-center text-center space-y-6">
                   <NavLinkItem to="/" onClick={closeMenu}>Início</NavLinkItem>
+                  <NavLinkItem to="/features" onClick={closeMenu}>Funcionalidades</NavLinkItem>
+                  <NavLinkItem to="/plans" onClick={closeMenu}>Planos</NavLinkItem>
                   <NavLinkItem to="/contact" onClick={closeMenu}>Contato</NavLinkItem>
               </nav>
               <div className="mt-10 pt-8 border-t border-gray-700 w-full max-w-xs flex flex-col items-center space-y-4">
@@ -132,8 +139,8 @@ const Header: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Button onClick={() => { navigate('/login'); closeMenu(); }} variant="outline" size="md" fullWidth>Login</Button>
-                      <Button onClick={() => { navigate('/signup'); closeMenu(); }} variant="primary" size="md" fullWidth>Cadastre-se</Button>
+                      <Button onClick={() => { navigate('/login'); closeMenu(); }} variant="primary" size="md" fullWidth>Login</Button>
+                      <Button onClick={() => { navigate('/signup/barbershop'); closeMenu(); }} variant="outline" size="md" fullWidth>Sou Barbearia</Button>
                     </>
                   )}
               </div>
